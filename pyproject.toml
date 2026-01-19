@@ -5,13 +5,29 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hiring-compass-au"
 version = "0.1.0"
-description = "Pilotage et automatisation contrôlée des candidatures en Australie."
+description = "Job offer ranking engine for the Australian market"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pandas",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "pytest",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+

@@ -1,17 +1,28 @@
+# Python
 __pycache__/
 *.py[cod]
-*.swp
-.DS_Store
+
+# Virtual env / secrets
+.venv/
 .env
 .env.local
-.venv/
 
-# Python build
-dist/
+# OS / editors
+.DS_Store
+*.swp
+
+# Build artifacts
 build/
+dist/
 *.egg-info/
 
-# Data and artifacts (keep placeholder files only)
+# Tooling cache
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data & artifacts (tracked structure only)
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
