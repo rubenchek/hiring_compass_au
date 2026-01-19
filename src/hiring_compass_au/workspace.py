@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 # Base repository directory; used to derive standard folders.
 ROOT_DIR = Path(__file__).resolve()
 while not (ROOT_DIR / "pyproject.toml").exists():
     ROOT_DIR = ROOT_DIR.parent
+    if ROOT_DIR == ROOT_DIR.parent:
+        raise RuntimeError("pyproject.toml not found")
 
 
 @dataclass(frozen=True)
@@ -18,24 +20,16 @@ class WorkspacePaths:
     data_raw: Path = ROOT_DIR / "data" / "raw"
     data_processed: Path = ROOT_DIR / "data" / "processed"
     models: Path = ROOT_DIR / "models"
-    metrics: Path = ROOT_DIR / "metrics"
-    notebooks: Path = ROOT_DIR / "notebooks"
-    configs: Path = ROOT_DIR / "configs"
+    reports: Path = ROOT_DIR / "reports"
     logs: Path = ROOT_DIR / "logs"
-    scripts: Path = ROOT_DIR / "scripts"
-    docs: Path = ROOT_DIR / "docs"
 
     def iterable(self) -> Iterable[Path]:
         return (
             self.data_raw,
             self.data_processed,
             self.models,
-            self.metrics,
-            self.notebooks,
-            self.configs,
+            self.reports,
             self.logs,
-            self.scripts,
-            self.docs,
         )
 
 
