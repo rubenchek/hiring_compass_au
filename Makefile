@@ -1,3 +1,6 @@
+install	:
+	uv pip install -e '.[dev]'
+
 bootstrap:
 	python -m scripts.bootstrap_workspace
 
@@ -6,3 +9,6 @@ lint:
 
 lint-fix:
 	ruff check src --fix
+
+test:
+	pytest
