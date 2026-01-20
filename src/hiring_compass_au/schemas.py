@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class Source(StrEnum):
@@ -52,10 +52,11 @@ class JobAd(BaseModel):
     location: str = Field(min_length=1)
     description: str = Field(min_length=1)
     url: HttpUrl
+    remote_option : RemoteOption | None = None
     
     # Dates
     posted_at: date | None = None  # derived later from "posted X days ago"
-    scraped_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
+    scraped_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     
     # Raw fields from source
     raw_salary: str | None = None
@@ -67,6 +68,31 @@ class JobAd(BaseModel):
 
     sector_raw: str | None = None
     sector: Sector | None = None
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def fallback_unknown_role(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, JobRole):
+            return v
+        try:
+            return JobRole(v)
+        except Exception:
+            return JobRole.OTHER
+        
+    
+    @field_validator("sector", mode="before")
+    @classmethod
+    def fallback_unknown_sector(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, Sector):
+            return v
+        try:
+            return Sector(v)
+        except Exception:
+            return Sector.OTHER
 
     # Debug: keep raw payload to reprocess
     raw: dict[str, Any] | None = None

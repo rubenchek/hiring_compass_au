@@ -1,3 +1,5 @@
+.PHONY: install bootstrap lint lint-fix test
+
 install	:
 	uv pip install -e '.[dev]'
 
@@ -11,4 +13,4 @@ lint-fix:
 	ruff check src --fix
 
 test:
-	pytest
+	pytest -q
