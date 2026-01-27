@@ -23,8 +23,8 @@ dist/
 htmlcov/
 
 # Data & artifacts (tracked structure only)
-data/raw/*
-!data/raw/.gitkeep
+data/*
+!data/**/*.dvc
 data/processed/*
 !data/processed/.gitkeep
 models/*
@@ -33,6 +33,7 @@ metrics/*
 !metrics/.gitkeep
 logs/*
 !logs/.gitkeep
+configs/
 
 # Jupyter
 .ipynb_checkpoints/

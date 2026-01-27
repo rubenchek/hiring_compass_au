@@ -12,6 +12,8 @@ dependencies = [
     "pandas",
     "numpy",
     "pydantic>=2",
+    "dvc[s3]",
+    "dagshub",
 ]
 
 [project.optional-dependencies]
