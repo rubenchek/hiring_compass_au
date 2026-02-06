@@ -34,6 +34,7 @@ metrics/*
 logs/*
 !logs/.gitkeep
 configs/
+secrets/
 
 # Jupyter
 .ipynb_checkpoints/

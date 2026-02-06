@@ -11,9 +11,15 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas",
     "numpy",
+    "jupyter",
+    "ipykernel",
     "pydantic>=2",
+    "pydantic-settings>=2.1",
     "dvc[s3]",
     "dagshub",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "google-auth-httplib2",
 ]
 
 [project.optional-dependencies]

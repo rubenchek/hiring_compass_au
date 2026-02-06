@@ -17,16 +17,16 @@ class WorkspacePaths:
     """Represents the canonical workspace layout for the project."""
 
     root: Path = ROOT_DIR
-    data_raw: Path = ROOT_DIR / "data" / "raw"
-    data_processed: Path = ROOT_DIR / "data" / "processed"
+    data: Path = ROOT_DIR / "data"
+    db_path: Path = ROOT_DIR / "data" / "local" / "state.sqlite"
     models: Path = ROOT_DIR / "models"
     reports: Path = ROOT_DIR / "reports"
     logs: Path = ROOT_DIR / "logs"
 
     def iterable(self) -> Iterable[Path]:
         return (
-            self.data_raw,
-            self.data_processed,
+            self.data,
+            self.db_path,
             self.models,
             self.reports,
             self.logs,
@@ -57,3 +57,9 @@ def format_created_state(state: list[tuple[Path, bool]]) -> str:
         prefix = "created" if created else "ok"
         lines.append(f"{prefix:>7}  {path.relative_to(ROOT_DIR)}")
     return "\n".join(lines)
+
+def get_workspace() -> WorkspacePaths:
+    """
+    Return a WorkspacePaths instance.
+    """
+    return WorkspacePaths()
