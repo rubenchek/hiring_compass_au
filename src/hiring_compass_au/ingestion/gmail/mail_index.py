@@ -1,9 +1,6 @@
 import logging
-from pathlib import Path
 
-from hiring_compass_au.ingestion.gmail.auth import authenticate_and_build_service
-from hiring_compass_au.storage.mail_store import get_connection, init_all_tables, upsert_indexed_emails, get_last_internal_date_ms
-from hiring_compass_au.workspace import get_workspace
+from hiring_compass_au.storage.mail_store import get_connection, upsert_indexed_emails, get_last_internal_date_ms
 
 logger = logging.getLogger(__name__)
     
@@ -28,17 +25,8 @@ def list_message_refs(service, query):
     logger.info("%s page(s) fetched", i)
     return all
     
-def run_mail_index(from_email):
-    ws = get_workspace()
-    
-    client_secret_path = ws.root / "secrets/google_client_secret.json"
-    token_path = ws.root / "secrets/gmail_token.json"
-    db_path = ws.db_path
-    
-    service = authenticate_and_build_service(client_secret_path, token_path)
-    
+def run_mail_index(from_email, service, db_path):   
     with get_connection(db_path) as conn:
-        init_all_tables(conn)
         last_internal_date_ms = get_last_internal_date_ms(conn, from_email)
         
         if last_internal_date_ms is not None:
@@ -50,7 +38,8 @@ def run_mail_index(from_email):
         inserted = upsert_indexed_emails(conn, messages)
         
     logger.info(
-        "Mail index: found %d messages, inserted %d new",
+        "Mail index for %s: found %d messages, inserted %d new",
+        from_email,
         len(messages),
         inserted,
     )

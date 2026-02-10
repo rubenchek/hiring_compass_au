@@ -2,9 +2,8 @@ import logging
 import base64
 from email.utils import parseaddr
 
-from hiring_compass_au.ingestion.gmail.auth import authenticate_and_build_service
 from hiring_compass_au.storage.mail_store import get_connection, get_non_fetched_email_list, update_fetched_email_metadata
-from hiring_compass_au.workspace import get_workspace
+
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +94,7 @@ def chunked(iterable, size: int):
         yield batch
     
             
-def run_mail_fetch(batch_size: int = 50):
-    ws = get_workspace()
-    
-    client_secret_path = ws.root / "secrets/google_client_secret.json"
-    token_path = ws.root / "secrets/gmail_token.json"
-    db_path = ws.db_path
-    
-    service = authenticate_and_build_service(client_secret_path, token_path)
-    
+def run_mail_fetch(service, db_path, batch_size: int = 50):   
     with get_connection(db_path) as conn:
         message_id_list = get_non_fetched_email_list(conn)
         if message_id_list:
@@ -119,7 +110,7 @@ def run_mail_fetch(batch_size: int = 50):
                 
                 try:
                     message = load_message(service, message_id)
-                    d.update(extract_message_fields(message))            
+                    d.update(extract_message_fields(message))        
                 except Exception as e:
                     d.update(
                         {
@@ -133,5 +124,6 @@ def run_mail_fetch(batch_size: int = 50):
                     logger.exception("Failed to fetch message_id=%s", message_id)
                     
                 rows.append(d)
-                
+               
             update_fetched_email_metadata(conn, rows)
+            logger.info("Email fetched")
