@@ -1,13 +1,16 @@
 from bs4 import BeautifulSoup
 from collections.abc import Iterator
 import re
+import hashlib
 
 
 # ---- Constants / patterns ----
 
 SEEK_TRACKING_PREFIX = "email.s.seek.com.au/uni/ss/c/"
-TITLE_STYLE_MARKER = "font-weight:700" 
-COMPANY_STYLE_MARKER = "color:#5a6881"
+TITLE_STYLE_MARKER = ("color:#2e3849", "font-size:16px","font-weight:700")
+COMPANY_STYLE_MARKER = ("color:#5a6881", "font-size:14px", "font-weight:400")   
+
+POSTED_ON_RE = re.compile(r"^Posted on \d{1,2} [A-Za-z]{3,9} \d{4}$")
 
 CTA_TITLE_RE = re.compile(r"\b(view|apply|details|see|open)\b", re.I)
 STATE_RE = re.compile(r"\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b")
@@ -29,7 +32,7 @@ RATE_DAY_RE  = re.compile(r"(per\s+day|p\.?\s*d\.?|pd)\b", re.I)
 RATE_HOUR_RE = re.compile(r"(per\s+hour|p\.?\s*h\.?|ph|hourly)\b", re.I)
 
 
-# ---- Small helpers ----
+# ---- Small utils ----
 
 def _style_lower(tag) -> str:
     return (tag.get("style") or "").lower()
@@ -38,6 +41,14 @@ def _style_lower(tag) -> str:
 def _norm_space(s: str) -> str:
     return " ".join(s.split())
 
+
+def is_noise_line(s: str) -> bool:
+    s = s.strip()
+    return bool(POSTED_ON_RE.match(s)) or s.lower().startswith("posted on ")
+
+
+def norm(s: str | None) -> str:
+    return _norm_space((s or "").lower())
 
 # ---- Anchor selection ----
 
@@ -84,7 +95,9 @@ def extract_title(cands):
     """
     for d, txt in cands:
         style = _style_lower(d)
-        if TITLE_STYLE_MARKER in style:
+        if all(m in style for m in TITLE_STYLE_MARKER):
+            if is_noise_line(txt):
+                continue
             return txt
     return None
 
@@ -97,7 +110,9 @@ def extract_company(cands):
     """
     for d, txt in cands:
         style = _style_lower(d)
-        if COMPANY_STYLE_MARKER in style:
+        if all(m in style for m in COMPANY_STYLE_MARKER):
+            if is_noise_line(txt):
+                continue
             return txt
     return None
     
@@ -334,6 +349,7 @@ def extract_job_from_anchor(a) -> dict:
     href = a.get("href", "")
     cands = collect_candidate_texts(a)
     texts = [txt for _, txt in cands]
+    texts = [t for t in texts if not is_noise_line(t)]
     
     title = extract_title(cands)
     company = extract_company(cands)
@@ -342,6 +358,12 @@ def extract_job_from_anchor(a) -> dict:
     location_raw = location_dict["location_raw"]
     
     salary_dict = extract_salary(texts, location_raw=location_raw)
+    
+    fingerprint = None
+    if title and company and location_raw:
+        fingerprint = hashlib.sha1(
+            f"{norm(title)}|{norm(company)}|{norm(location_raw)}".encode("utf-8")
+        ).hexdigest()[:16]
 
     hit.update(
         {   
@@ -351,6 +373,7 @@ def extract_job_from_anchor(a) -> dict:
             **salary_dict,
             "out_url": href,
             "debug_lines": texts,
+            "fingerprint": fingerprint,
         }
     )
     

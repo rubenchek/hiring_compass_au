@@ -83,6 +83,7 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             -- Primary and Foreign key
             hit_id            INTEGER PRIMARY KEY AUTOINCREMENT,
             message_id        TEXT NOT NULL,
+            fingerprint       TEXT,
             template          TEXT,
             
             -- From parsed
@@ -136,6 +137,7 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             job_id          TEXT PRIMARY KEY,
             source          TEXT NOT NULL,
             canonical_url   TEXT NOT NULL,
+            figerprint      TEXT,
             title           TEXT,
             company         TEXT,
             suburb          TEXT,
@@ -366,6 +368,7 @@ def upsert_email_job_hits(
     INSERT INTO email_job_hits (
         message_id,
         source,
+        fingerprint,
         out_url,
         title,
         company,
@@ -382,9 +385,10 @@ def upsert_email_job_hits(
         parser_name,
         parser_version
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(message_id, out_url) DO UPDATE SET
         source = excluded.source,
+        fingerprint = excluded.fingerprint,
         title = excluded.title,
         company = excluded.company,
         suburb = excluded.suburb,
@@ -408,6 +412,7 @@ def upsert_email_job_hits(
         row = (
             message_id,
             parser_cfg["source"],
+            hit.get("fingerprint"),
             hit.get("out_url"),
             hit.get("title"),
             hit.get("company"),
