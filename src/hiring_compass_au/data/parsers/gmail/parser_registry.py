@@ -1,4 +1,4 @@
-from hiring_compass_au.parsers.gmail.seek_mail_parser import parse_seek_email
+from hiring_compass_au.data.parsers.gmail.seek_mail_parser import parse_seek_email
 from collections.abc import Iterator
 
 

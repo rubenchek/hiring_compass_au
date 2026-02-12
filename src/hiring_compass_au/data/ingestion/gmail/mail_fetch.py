@@ -1,8 +1,9 @@
 import logging
 import base64
+import sqlite3
 from email.utils import parseaddr
 
-from hiring_compass_au.storage.mail_store import get_connection, get_non_fetched_email_list, update_fetched_email_metadata
+from hiring_compass_au.data.storage.mail_store import get_non_fetched_email_list, update_fetched_email_metadata
 
 
 logger = logging.getLogger(__name__)
@@ -94,36 +95,35 @@ def chunked(iterable, size: int):
         yield batch
     
             
-def run_mail_fetch(service, db_path, batch_size: int = 50):   
-    with get_connection(db_path) as conn:
-        message_id_list = get_non_fetched_email_list(conn)
-        if message_id_list:
-            logger.info("%s new messages to fetch", len(message_id_list))
-        else:
-            logger.info("No new message to fetch")
+def run_mail_fetch(service, conn: sqlite3.Connection, batch_size: int = 50):   
+    message_id_list = get_non_fetched_email_list(conn)
+    if message_id_list:
+        logger.info("%s new messages to fetch", len(message_id_list))
+    else:
+        logger.info("No new message to fetch")
+    
+    for id_batch in chunked(message_id_list, batch_size):
+        rows = []
         
-        for id_batch in chunked(message_id_list, batch_size):
-            rows = []
+        for message_id in id_batch:
+            d={"message_id": message_id}
             
-            for message_id in id_batch:
-                d={"message_id": message_id}
+            try:
+                message = load_message(service, message_id)
+                d.update(extract_message_fields(message))        
+            except Exception as e:
+                d.update(
+                    {
+                        "from_email": None,
+                        "subject": None, 
+                        "internal_date_ms": None, 
+                        "html_raw": None,
+                        "error": f"Fetched error: {repr(e)}"
+                        }
+                    )
+                logger.exception("Failed to fetch message_id=%s", message_id)
                 
-                try:
-                    message = load_message(service, message_id)
-                    d.update(extract_message_fields(message))        
-                except Exception as e:
-                    d.update(
-                        {
-                            "from_email": None,
-                            "subject": None, 
-                            "internal_date_ms": None, 
-                            "html_raw": None,
-                            "error": f"Fetched error: {repr(e)}"
-                            }
-                        )
-                    logger.exception("Failed to fetch message_id=%s", message_id)
-                    
-                rows.append(d)
-               
-            update_fetched_email_metadata(conn, rows)
-            logger.info("Email fetched")
+            rows.append(d)
+            
+        update_fetched_email_metadata(conn, rows)
+        logger.info("Email fetched")
