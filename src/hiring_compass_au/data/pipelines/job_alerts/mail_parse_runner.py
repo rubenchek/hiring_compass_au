@@ -1,8 +1,8 @@
 import logging
 
 import sqlite3
-from hiring_compass_au.data.storage.mail_store import (
-    get_fetched_emails_to_parse, update_parsed_email, upsert_email_job_hits)
+from hiring_compass_au.data.storage.mail_store import get_fetched_emails_to_parse, update_parsed_email 
+from hiring_compass_au.data.storage.hit_store import upsert_email_job_hits
 from hiring_compass_au.data.parsers.gmail.parser_registry import parse_email
 
 logger = logging.getLogger(__name__)

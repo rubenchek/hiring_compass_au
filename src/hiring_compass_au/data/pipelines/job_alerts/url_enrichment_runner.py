@@ -6,7 +6,7 @@ import sqlite3
 import time, random
 from tqdm import tqdm
  
-from hiring_compass_au.data.storage.mail_store import get_batch_url_to_canonicalize, update_job_hit_canonicalization, count_urls_to_canonicalize
+from hiring_compass_au.data.storage.hit_store import get_batch_url_to_canonicalize, update_job_hit_canonicalization, count_urls_to_canonicalize
 from hiring_compass_au.data.enrichment.url_canonicalizer import resolve_to_canonical, CanonicalizeError
 
 logger = logging.getLogger(__name__)

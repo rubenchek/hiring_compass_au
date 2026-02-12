@@ -7,7 +7,7 @@ from hiring_compass_au.data.ingestion.gmail.auth_and_build import authenticate_a
 from hiring_compass_au.data.ingestion.gmail.mail_index import run_mail_index
 from hiring_compass_au.data.ingestion.gmail.mail_fetch import run_mail_fetch
 
-from hiring_compass_au.data.storage.mail_store import get_connection
+from hiring_compass_au.data.storage.db import get_connection
 
 from hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner import run_mail_parse
 from hiring_compass_au.data.pipelines.job_alerts.url_enrichment_runner import run_url_enrichment_all
@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 SENDERS = ["jobmail@s.seek.com.au"]
 
-def run_job_alert_pipeline(index=True, fetch=True, parse=True, enrich=True, promote=False):
+
+def run_job_alert_pipeline(index=True, fetch=True, parse=True, enrich=False, promote=False):
     logger.info("Pipeline flags: index=%s fetch=%s parse=%s enrich=%s promote=%s",
     index, fetch, parse, enrich, promote)
     
