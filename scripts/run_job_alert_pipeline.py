@@ -1,4 +1,4 @@
-from hiring_compass_au.ingestion.gmail.pipeline import run_mail_ingestion_pipeline
+from hiring_compass_au.data.pipelines.job_alerts.run import run_job_alert_pipeline
 import logging
 
 
@@ -8,7 +8,7 @@ def main():
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
-    run_mail_ingestion_pipeline()
+    run_job_alert_pipeline()
     
 if __name__ == "__main__":
     main()

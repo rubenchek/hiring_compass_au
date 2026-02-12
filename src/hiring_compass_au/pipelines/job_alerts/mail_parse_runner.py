@@ -45,6 +45,7 @@ def run_mail_parse(db_path):
             message_id = message["message_id"]
             from_email = message["from_email"]
             html_raw = message["html_raw"]
+            parser_cfg = None
             mail_count+=1
             
             try:

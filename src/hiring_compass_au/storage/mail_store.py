@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import json
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # ----------------------------
 # Connection
@@ -16,6 +16,22 @@ def get_connection(db_path: Path, row_factory=None) -> sqlite3.Connection:
         conn.row_factory = row_factory
     return conn
 
+# ----------------------------
+# Utils
+# ----------------------------
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _compute_backoff_minutes(attempt_count_after_increment: int) -> int:
+    """
+    Exponential backoff in minutes, capped.
+    attempt_count_after_increment: 1,2,3,...
+    """
+    # 1->2min, 2->4min, 3->8min, ... cap at 1440min (24h)
+    minutes = 2 ** attempt_count_after_increment
+    return min(minutes, 24 * 60)
 
 # ----------------------------
 # Schema init
@@ -79,7 +95,7 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             salary_min        INTEGER,
             salary_max        INTEGER,
             salary_period     TEXT,
-            salary_text       TEXT,
+            salary_raw        TEXT,
             debug_lines       TEXT,
             out_url           TEXT NOT NULL,
             out_url_norm TEXT,
@@ -105,7 +121,6 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             canon_error       TEXT,
 
             FOREIGN KEY (message_id) REFERENCES emails(message_id) ON DELETE CASCADE,
-            FOREIGN KEY (job_id) REFERENCES job_ads(job_id) ON DELETE SET NULL,
             UNIQUE(message_id, out_url)
         );
         """
@@ -130,7 +145,7 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             salary_min      INTEGER,
             salary_max      INTEGER,
             salary_period   TEXT,
-            salary_text     TEXT,
+            salary_raw     TEXT,
             description     TEXT,
             job_status      TEXT DEFAULT 'new',
             
@@ -208,7 +223,7 @@ def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int
     if not messages:
         return 0
     
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now = _utc_now_iso()
     
     rows = []
     for m in messages:
@@ -243,7 +258,7 @@ def update_fetched_email_metadata(conn: sqlite3.Connection, fetched_mail_batch: 
     if not fetched_mail_batch:
         return 0
     
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now = _utc_now_iso()
     
     rows = []
     for m in fetched_mail_batch:
@@ -308,7 +323,7 @@ def update_parsed_email(
     - supported=True and parsed_count==0 => status='parsed_empty'
     - supported=True and parsed_count>0  => status='parsed'
     """
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now = _utc_now_iso()
     if error:
         status = "parsed_error"
     elif not supported:
@@ -361,7 +376,7 @@ def upsert_email_job_hits(
         salary_min,
         salary_max,
         salary_period,
-        salary_text,
+        salary_raw,
         debug_lines,
         hit_confidence,
         parser_name,
@@ -379,7 +394,7 @@ def upsert_email_job_hits(
         salary_min = excluded.salary_min,
         salary_max = excluded.salary_max,
         salary_period = excluded.salary_period,
-        salary_text = excluded.salary_text,
+        salary_raw = excluded.salary_raw,
         debug_lines = excluded.debug_lines,
         hit_confidence = excluded.hit_confidence,
         parser_name = excluded.parser_name,
@@ -403,7 +418,7 @@ def upsert_email_job_hits(
             hit.get("salary_min"),
             hit.get("salary_max"),
             hit.get("salary_period"),
-            hit.get("salary_text"),
+            hit.get("salary_raw"),
             debug_lines_json,
             int(hit.get("hit_confidence") or 0),
             parser_cfg["parser_name"],
@@ -417,6 +432,69 @@ def upsert_email_job_hits(
     return len(rows)
 
 
+def update_job_hit_canonicalization(
+    conn,
+    hit_id: int,                      # ou (message_id, hit_rank) etc selon ta PK
+    outcome: str,                     # "ok" | "retry" | "error"
+    http_status: int | None = None,
+    canonical_url: str | None = None,
+    job_id: str | None = None,
+    canon_error: str | None = None,
+) -> None:
+    if outcome not in {"ok", "retry", "error"}:
+        raise ValueError(f"Invalid outcome: {outcome}")
+    
+    now = _utc_now_iso()
+    
+    # Fetch current attempt_count so backoff uses the incremented value
+    row = conn.execute(
+        "SELECT attempt_count FROM email_job_hits WHERE hit_id = ?",
+        (hit_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"email_job_hits hit_id not found: {hit_id}")
+    
+    attempt_count_before = int(row["attempt_count"]) 
+    attempt_count_after = attempt_count_before + 1
+    
+    if outcome == "ok":
+        canon_error = None
+        next_retry_at = None
+
+    if outcome == "retry":
+        delay_min = _compute_backoff_minutes(attempt_count_after)
+        dt = datetime.now(timezone.utc) + timedelta(minutes=delay_min)
+        next_retry_at = dt.replace(microsecond=0).isoformat()
+    
+    if outcome == "error":
+        next_retry_at = None
+
+    conn.execute(
+        """
+        UPDATE email_job_hits
+        SET
+            job_id = ?,
+            canonical_url = ?,
+            canonical_status = ?,
+            http_status = ?,
+            attempt_count = ?,
+            next_retry_at = ?,
+            last_attempt_at = ?,
+            canon_error = ?
+        WHERE hit_id = ?
+        """,
+        (
+            job_id,
+            canonical_url,
+            outcome,
+            http_status,
+            attempt_count_after,
+            next_retry_at,
+            now,
+            canon_error,
+            hit_id,
+        ),
+    )
 
 # ----------------------------
 # Request database
@@ -474,3 +552,50 @@ def get_fetched_emails_to_parse(conn: sqlite3.Connection):
     )
     for row in cur:
         yield row
+
+
+def count_urls_to_canonicalize(conn: sqlite3.Connection, max_attempts: int = 10) -> int:
+    now = _utc_now_iso()
+    row = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM email_job_hits
+        WHERE
+            canonical_status IN ('pending','retry')
+            AND attempt_count < ?
+            AND (next_retry_at IS NULL OR next_retry_at <= ?)
+            AND TRIM(out_url) <> ''
+        """,
+        (max_attempts, now),
+    ).fetchone()
+    return int(row[0])
+
+
+
+def get_batch_url_to_canonicalize(conn: sqlite3.Connection, limit: int, max_attempts: int = 10,) -> list[sqlite3.Row]:
+    """
+    Returns a batch of email_job_hits rows to canonicalize.
+    Expects sqlite row_factory=sqlite3.Row.
+    """
+    now = _utc_now_iso()
+    
+    return conn.execute(
+        """
+        SELECT hit_id, out_url
+        FROM email_job_hits
+        WHERE
+            canonical_status IN ('pending','retry')
+            AND attempt_count < ?
+            AND (next_retry_at IS NULL OR next_retry_at <= ?)
+            AND TRIM(out_url) <> ''
+        ORDER BY
+            -- prefer oldest never-attempted
+            CASE WHEN last_attempt_at IS NULL THEN 0 ELSE 1 END ASC,
+            CASE WHEN last_attempt_at IS NULL THEN hit_id END ASC,
+            -- then oldest next_retry_at/last_attempt_at first
+            CASE WHEN last_attempt_at IS NOT NULL THEN next_retry_at END ASC,
+            hit_id ASC
+        LIMIT ?
+        """,
+        (max_attempts, now, limit),
+    ).fetchall()
