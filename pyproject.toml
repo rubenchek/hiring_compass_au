@@ -11,6 +11,8 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas",
     "numpy",
+    "matplotlib",
+    "seaborn",
     "jupyter",
     "ipykernel",
     "pydantic>=2",

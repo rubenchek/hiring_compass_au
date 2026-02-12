@@ -21,14 +21,19 @@ LOC_RE = re.compile(
     )
 
 MONEY_RE = re.compile(r"\$[\d,]+")
-MONEY_NUM_RE = re.compile(r"\$\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)")
-
+MONEY_DOLLAR_RE = re.compile(
+    r"\$\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*([kK])?"
+)
+MONEY_K_RE = re.compile(
+    r"(?<![\w$])([0-9]+(?:\.[0-9]+)?)\s*[kK](?!\w)"
+)
 SALARY_HINT_RE = re.compile(
     r"\b(salary|super|package|per\s+year|p\.a\.|bonus|incentive|discount)\b", re.I,
     )
 
 RATE_YEAR_RE = re.compile(r"(per\s+year|per\s+annum|p\.?\s*a\.?|pa)\b", re.I)
-RATE_DAY_RE  = re.compile(r"(per\s+day|p\.?\s*d\.?|pd)\b", re.I)
+RATE_MONTH_RE = re.compile(r"(per\s+month|p\.?\s*m\.?|pm|monthly)\b", re.I)
+RATE_DAY_RE  = re.compile(r"(per\s+day|p\.?\s*d\.?|pd|daily)\b", re.I)
 RATE_HOUR_RE = re.compile(r"(per\s+hour|p\.?\s*h\.?|ph|hourly)\b", re.I)
 
 
@@ -193,6 +198,50 @@ def best_salary(texts, location_raw=None):
     return min(hinted, key=len) if hinted else None
 
 
+def parse_amounts(s: str) -> list[float]:
+    s = s.strip()
+    nums: list[float] = []
+    
+    # $ amounts (optionally with k/K)
+    for n_str, k_flag in MONEY_DOLLAR_RE.findall(s):
+        v = float(n_str.replace(",", ""))
+        if k_flag and v<=2000:
+            v *= 1000.0
+        nums.append(v)
+
+    # k/K amounts without $ (avoid double-counting $125k which is already captured above)
+    if "$" not in s:
+        for n_str in MONEY_K_RE.findall(s):
+            nums.append(float(n_str) * 1000.0)
+            
+    # m = RANGE_K_PROP_RE.search(s)
+    # if m:
+    #     a = float(m.group("a"))
+    #     b = float(m.group("b"))
+    #     ka = bool(m.group("ka"))
+    #     kb = bool(m.group("kb"))
+    #     if ka ^ kb:
+    #         ka = kb = True
+    #     if ka:
+    #         a *= 1000.0
+    #     if kb:
+    #         b *= 1000.0
+    #     nums = [a,b]
+    
+    if not nums or len(nums)<=1:
+        return nums
+    
+    # sanity check
+    lo=min(nums) 
+    hi=max(nums)
+    
+    if len(nums)==2 and lo!=0 and hi/lo >= 500 :
+        index = nums.index(lo)
+        nums[index] = lo*1000
+        
+    return nums
+
+
 def detect_rate_type(s: str):
     """Infer salary period from text (hour/day/year) using simple keyword patterns.
 
@@ -202,6 +251,8 @@ def detect_rate_type(s: str):
         return "hour"
     if RATE_DAY_RE.search(s):
         return "day"
+    if RATE_MONTH_RE.search(s):
+        return "month"
     if RATE_YEAR_RE.search(s):
         return "year"
     return None
@@ -223,17 +274,14 @@ def extract_salary(texts, location_raw=None):
     }
     
     salary_text = best_salary(texts, location_raw)
-
     if not salary_text:
         return result
     
-    result["salary_raw"] = _norm_space(salary_text)
+    raw = _norm_space(salary_text)
+    result["salary_raw"] = raw
     result["salary_period"] = detect_rate_type(result["salary_raw"])
 
-    if "$" not in result["salary_raw"]:
-        return result
-    
-    nums = [float(n.replace(",", "")) for n in MONEY_NUM_RE.findall(result["salary_raw"])]
+    nums = parse_amounts(raw)
     if not nums:
         return result
     
@@ -358,11 +406,12 @@ def extract_job_from_anchor(a) -> dict:
     location_raw = location_dict["location_raw"]
     
     salary_dict = extract_salary(texts, location_raw=location_raw)
+    salary_period = salary_dict["salary_period"]
     
     fingerprint = None
     if title and company and location_raw:
         fingerprint = hashlib.sha1(
-            f"{norm(title)}|{norm(company)}|{norm(location_raw)}".encode("utf-8")
+            f"{norm(title)}|{norm(company)}|{norm(location_raw)}|{norm(salary_period)}".encode("utf-8")
         ).hexdigest()[:16]
 
     hit.update(
