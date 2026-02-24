@@ -105,7 +105,7 @@ def update_job_hit_canonicalization(
     outcome: str,                     # "ok" | "retry" | "error"
     http_status: int | None = None,
     canonical_url: str | None = None,
-    job_id: str | None = None,
+    external_job_id: str | None = None,
     canon_error: str | None = None,
 ) -> None:
     if outcome not in {"ok", "retry", "error"}:
@@ -124,34 +124,40 @@ def update_job_hit_canonicalization(
     attempt_count_before = int(row["attempt_count"]) 
     attempt_count_after = attempt_count_before + 1
     
+    next_retry_at = None
+    
     if outcome == "ok":
         canon_error = None
         next_retry_at = None
+        promote_status = 'pending'
 
-    if outcome == "retry":
+    elif outcome == "retry":
         delay_min = compute_backoff_minutes(attempt_count_after)
         dt = datetime.now(timezone.utc) + timedelta(minutes=delay_min)
         next_retry_at = dt.replace(microsecond=0).isoformat()
+        promote_status = 'pending'
     
-    if outcome == "error":
+    else:
         next_retry_at = None
+        promote_status = 'rejected'
 
     conn.execute(
         """
         UPDATE email_job_hits
         SET
-            job_id = ?,
+            external_job_id = ?,
             canonical_url = ?,
             canonical_status = ?,
             http_status = ?,
             attempt_count = ?,
             next_retry_at = ?,
             last_attempt_at = ?,
-            canon_error = ?
+            canon_error = ?,
+            promote_status = ?
         WHERE hit_id = ?
         """,
         (
-            job_id,
+            external_job_id,
             canonical_url,
             outcome,
             http_status,
@@ -159,9 +165,37 @@ def update_job_hit_canonicalization(
             next_retry_at,
             now,
             canon_error,
+            promote_status,
             hit_id,
         ),
     )
+    
+    
+def update_promoted_job_hits(
+    conn: sqlite3.Connection, 
+    hits_upserted: list, 
+    hits_failed: list,
+    failed_reason = None):
+    sql= """
+    UPDATE email_job_hits
+    SET promote_status = ?, promote_reason = ?
+    WHERE hit_id = ?
+    """
+
+    rows: list[tuple[str, str | None, int]] = []
+
+    for hit_id in hits_upserted:
+        if hit_id is None:
+            continue
+        rows.append(("promoted", None, int(hit_id)))
+
+    for hit_id in hits_failed:
+        if hit_id is None:
+            continue
+        rows.append(("rejected", failed_reason, int(hit_id)))
+
+    if rows:
+        conn.executemany(sql, rows)
 
 
 # ----------------------------
@@ -199,6 +233,7 @@ def get_batch_url_to_canonicalize(conn: sqlite3.Connection, limit: int, max_atte
         FROM email_job_hits
         WHERE
             canonical_status IN ('pending','retry')
+            AND promote_status IN ('new')
             AND attempt_count < ?
             AND (next_retry_at IS NULL OR next_retry_at <= ?)
             AND TRIM(out_url) <> ''
@@ -213,3 +248,37 @@ def get_batch_url_to_canonicalize(conn: sqlite3.Connection, limit: int, max_atte
         """,
         (max_attempts, now, limit),
     ).fetchall()
+
+
+def get_promote_pending_job_hits(conn: sqlite3.Connection, limit: int = 200):
+    return conn.execute(
+    """
+    SELECT 
+        hit_id,
+        external_job_id, 
+        source,
+        canonical_url,
+        fingerprint,
+        title,
+        company,
+        suburb,
+        city,
+        state,
+        location_raw,
+        salary_min,
+        salary_max,
+        salary_period,
+        salary_raw
+    FROM email_job_hits   
+    WHERE
+        promote_status = 'pending'
+        AND canonical_status = 'ok'
+        AND canonical_url IS NOT NULL
+        AND TRIM(canonical_url) <> ''
+        AND source IS NOT NULL
+        AND TRIM(source) <> ''
+    ORDER BY hit_id
+    LIMIT ?
+    """,
+    (limit,),
+    )

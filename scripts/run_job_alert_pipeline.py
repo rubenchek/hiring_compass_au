@@ -1,4 +1,4 @@
-from hiring_compass_au.data.pipelines.job_alerts.run import run_job_alert_pipeline
+from hiring_compass_au.data.pipelines.job_alerts.job_alerts_pipeline import run_job_alert_pipeline
 import logging
 
 

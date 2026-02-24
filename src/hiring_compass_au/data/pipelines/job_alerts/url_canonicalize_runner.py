@@ -12,7 +12,7 @@ from hiring_compass_au.data.enrichment.url_canonicalizer import resolve_to_canon
 logger = logging.getLogger(__name__)
 
 
-def run_url_enrichment(conn: sqlite3, session, limit: int = 200, timeout: float = 15.0,
+def run_url_enrichment_batch(conn: sqlite3, session, limit: int = 200, timeout: float = 15.0,
                        *, global_bar=None) -> tuple[int,int,int,int]:
     """
     Fetch a batch of pending/retry hits, resolve -> canonicalize, update DB status fields.
@@ -43,16 +43,16 @@ def run_url_enrichment(conn: sqlite3, session, limit: int = 200, timeout: float 
                     outcome="error",
                     http_status=None,
                     canonical_url=None,
-                    job_id=None,
+                    external_job_id=None,
                     canon_error="Empty out_url",
                 )
                 err += 1
                 continue
             
             try:
-                job_id, canonical_url, http_status  = resolve_to_canonical(session, out_url, timeout=timeout)
+                external_job_id, canonical_url, http_status  = resolve_to_canonical(session, out_url, timeout=timeout)
                 update_job_hit_canonicalization(
-                    conn, hit_id, job_id=job_id, canonical_url=canonical_url, http_status=http_status, canon_error=None, outcome="ok",
+                    conn, hit_id, external_job_id=external_job_id, canonical_url=canonical_url, http_status=http_status, canon_error=None, outcome="ok",
                     )
                 ok += 1
 
@@ -61,7 +61,7 @@ def run_url_enrichment(conn: sqlite3, session, limit: int = 200, timeout: float 
                 logger.warning("Retryable network error for out_url=%s: %s", out_url, e)
                 sleep_s = max(sleep_s, 2 + random.uniform(0, 2))
                 update_job_hit_canonicalization(
-                    conn, hit_id, job_id=None, canonical_url=None, http_status=None, 
+                    conn, hit_id, external_job_id=None, canonical_url=None, http_status=None, 
                     canon_error=f"{type(e).__name__}: {e}", outcome="retry",
                     )
                 retry += 1
@@ -78,14 +78,14 @@ def run_url_enrichment(conn: sqlite3, session, limit: int = 200, timeout: float 
                     logger.info("Non-canonicalizable out_url=%s: %s", out_url, e)
                     err += 1
                 update_job_hit_canonicalization(
-                    conn, hit_id, http_status=http_status, canonical_url=None, job_id=None, canon_error=str(e), outcome=outcome,
+                    conn, hit_id, http_status=http_status, canonical_url=None, external_job_id=None, canon_error=str(e), outcome=outcome,
                     )
                 
             
             except Exception as e:
                 logger.exception("Unexpected error for out_url=%s", out_url)
                 update_job_hit_canonicalization(
-                    conn, hit_id, http_status=None, canonical_url=None, job_id=None, 
+                    conn, hit_id, http_status=None, canonical_url=None, external_job_id=None, 
                     canon_error=f"Unexpected: {type(e).__name__}: {e}", outcome="retry",
                     )
                 retry += 1
@@ -105,7 +105,7 @@ def run_url_enrichment(conn: sqlite3, session, limit: int = 200, timeout: float 
 
     
     
-def run_url_enrichment_all(conn: sqlite3.Connection , *, batch_size: int = 200, timeout: float = 15.0, max_batches: int | None = None) -> tuple[int,int,int]:
+def run_url_enrichment(conn: sqlite3.Connection , *, batch_size: int = 200, timeout: float = 15.0, max_batches: int | None = None) -> tuple[int,int,int]:
     total = count_urls_to_canonicalize(conn)
     if total == 0:
         logger.info("URL enrichment: up-to-date")
@@ -126,7 +126,7 @@ def run_url_enrichment_all(conn: sqlite3.Connection , *, batch_size: int = 200, 
             if max_batches is not None and batches >= max_batches:
                 break
             
-            ok_b, retry_b, err_b, treated_b = run_url_enrichment(
+            ok_b, retry_b, err_b, treated_b = run_url_enrichment_batch(
                 conn, session, limit=batch_size, timeout=timeout, global_bar=global_bar)
             
             ok += ok_b; retry += retry_b; err += err_b

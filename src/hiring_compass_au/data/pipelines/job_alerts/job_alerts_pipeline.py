@@ -10,16 +10,17 @@ from hiring_compass_au.data.ingestion.gmail.mail_fetch import run_mail_fetch
 from hiring_compass_au.data.storage.db import get_connection
 
 from hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner import run_mail_parse
-from hiring_compass_au.data.pipelines.job_alerts.url_enrichment_runner import run_url_enrichment_all
+from hiring_compass_au.data.pipelines.job_alerts.url_canonicalize_runner import run_url_enrichment
+from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
 
 logger = logging.getLogger(__name__)
 
 SENDERS = ["jobmail@s.seek.com.au"]
 
 
-def run_job_alert_pipeline(index=True, fetch=True, parse=True, enrich=False, promote=False):
+def run_job_alert_pipeline(index=True, fetch=True, parse=True, canonicalize=True, promote=True):
     logger.info("Pipeline flags: index=%s fetch=%s parse=%s enrich=%s promote=%s",
-    index, fetch, parse, enrich, promote)
+    index, fetch, parse, canonicalize, promote)
     
     ws = get_workspace()
     db_path = ws.db_path
@@ -42,9 +43,10 @@ def run_job_alert_pipeline(index=True, fetch=True, parse=True, enrich=False, pro
             logger.info("Start parsing emails")
             run_mail_parse(conn=conn)
 
-        if enrich:
+        if canonicalize:
             logger.info("Start canonicalize url")
-            run_url_enrichment_all(conn=conn)
-        # TODO
-        # if promote:
-        # run_promote_job_ad()
+            run_url_enrichment(conn=conn)
+
+        if promote:
+            logger.info("Start promoting job ads")
+            run_promote_job_ad(conn=conn)

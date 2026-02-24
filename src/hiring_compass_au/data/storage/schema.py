@@ -65,7 +65,7 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             salary_raw        TEXT,
             debug_lines       TEXT,
             out_url           TEXT NOT NULL,
-            out_url_norm TEXT,
+            out_url_norm      TEXT,
             hit_context       TEXT,
             source            TEXT NOT NULL,
             
@@ -73,14 +73,15 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             hit_confidence    INTEGER,
             parser_name       TEXT,
             parser_version    TEXT,
-            promote_status    TEXT NOT NULL DEFAULT 'pending'
-                CHECK (promote_status IN ('pending','promoted','skipped','rejected')),
+            promote_status    TEXT NOT NULL DEFAULT 'new'
+                CHECK (promote_status IN ('new','pending','promoted','skipped','rejected')),
             promote_reason    TEXT,
             
             -- Canonicalisation
             job_id            TEXT,
             canonical_url     TEXT,
-            canonical_status  TEXT NOT NULL DEFAULT 'pending',
+            canonical_status  TEXT NOT NULL DEFAULT 'pending'
+                CHECK (canonical_status IN ('pending','ok','retry','error')),
             http_status       INTEGER,
             attempt_count     INTEGER NOT NULL DEFAULT 0,
             next_retry_at     TEXT,
@@ -100,10 +101,10 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS job_ads (
-            job_id          TEXT PRIMARY KEY,
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
             source          TEXT NOT NULL,
-            canonical_url   TEXT NOT NULL,
-            figerprint      TEXT,
+            external_job_id TEXT,
+            fingerprint     TEXT,
             title           TEXT,
             company         TEXT,
             suburb          TEXT,
@@ -113,15 +114,16 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             salary_min      INTEGER,
             salary_max      INTEGER,
             salary_period   TEXT,
-            salary_raw     TEXT,
+            salary_raw      TEXT,
             description     TEXT,
             job_status      TEXT DEFAULT 'new',
+            canonical_url   TEXT NOT NULL,
             
             first_seen_at   TEXT,
             last_seen_at    TEXT,
-            debug_lines     TEXT,
             
-            UNIQUE(source, canonical_url)
+            UNIQUE(source, canonical_url),
+            UNIQUE(source, external_job_id) 
         );
         """
     )
@@ -134,8 +136,10 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS job_ad_enrichment(
-            job_id          TEXT PRIMARY KEY,
-            enrich_status   TEXT NOT NULL DEFAULT 'pending',
+            job_id          INTEGER,
+            enrich_type     TEXT,
+            enrich_status   TEXT NOT NULL DEFAULT 'pending'
+                CHECK (enrich_status IN ('pending','ok','retry','error')),
             http_status     INTEGER,
             attempt_count   INTEGER NOT NULL DEFAULT 0,
             next_retry_at   TEXT,
@@ -143,7 +147,8 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
             error           TEXT,
             fetched_at      TEXT,
             
-            FOREIGN KEY (job_id) REFERENCES job_ads(job_id) ON DELETE CASCADE
+            PRIMARY KEY (job_id, enrich_type),
+            FOREIGN KEY (job_id) REFERENCES job_ads(id) ON DELETE CASCADE
         );
         """
     )

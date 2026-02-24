@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 .env
 .env.local
+agents.md
 
 # OS / editors
 .DS_Store
@@ -38,3 +39,5 @@ secrets/
 
 # Jupyter
 .ipynb_checkpoints/
+
+git_ignore_exploration/
