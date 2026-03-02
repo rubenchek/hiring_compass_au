@@ -14,3 +14,6 @@ lint-fix:
 
 test:
 	pytest -q
+
+mail-promote:
+	python3 -m hiring_compass_au.data.pipelines.job_alerts

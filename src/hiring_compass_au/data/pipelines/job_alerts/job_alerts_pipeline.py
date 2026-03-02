@@ -1,52 +1,45 @@
 import logging
 import sqlite3
-
-from hiring_compass_au.workspace import get_workspace
+from pathlib import Path
 
 from hiring_compass_au.data.ingestion.gmail.auth_and_build import authenticate_and_build_service
-from hiring_compass_au.data.ingestion.gmail.mail_index import run_mail_index
 from hiring_compass_au.data.ingestion.gmail.mail_fetch import run_mail_fetch
-
-from hiring_compass_au.data.storage.db import get_connection
-
+from hiring_compass_au.data.ingestion.gmail.mail_index import run_mail_index
+from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
 from hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner import run_mail_parse
 from hiring_compass_au.data.pipelines.job_alerts.url_canonicalize_runner import run_url_enrichment
-from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
 
 logger = logging.getLogger(__name__)
 
-SENDERS = ["jobmail@s.seek.com.au"]
 
-
-def run_job_alert_pipeline(index=True, fetch=True, parse=True, canonicalize=True, promote=True):
-    logger.info("Pipeline flags: index=%s fetch=%s parse=%s enrich=%s promote=%s",
-    index, fetch, parse, canonicalize, promote)
+def run_job_alert_pipeline(
+    conn: sqlite3.Connection,
+    client_secret_path: Path, token_path: Path, *,
+    index: bool = True, fetch: bool = True, 
+    parse: bool = True, canonicalize: bool = True, promote: bool = True,
+    senders: list[str] | None = None):
     
-    ws = get_workspace()
-    db_path = ws.db_path
+    senders = senders or ["jobmail@s.seek.com.au"]
     
-    with get_connection(db_path, sqlite3.Row) as conn:
-        if index or fetch:
-            client_secret_path = ws.root / "secrets/google_client_secret.json"
-            token_path = ws.root / "secrets/gmail_token.json"
-            service = authenticate_and_build_service(client_secret_path, token_path)
-            
-            if index:
-                logger.info("Start indexing emails (%d sender(s))", len(SENDERS))
-                for sender in SENDERS:
-                    run_mail_index(from_email=sender, service=service, conn=conn)
-            if fetch:
-                logger.info("Start fetching emails")
-                run_mail_fetch(service=service, conn=conn)
+    if index or fetch:
+        service = authenticate_and_build_service(client_secret_path, token_path)
         
-        if parse:
-            logger.info("Start parsing emails")
-            run_mail_parse(conn=conn)
+        if index:
+            logger.info("Start indexing emails (%d sender(s))", len(senders))
+            for sender in senders:
+                run_mail_index(from_email=sender, service=service, conn=conn)
+        if fetch:
+            logger.info("Start fetching emails")
+            run_mail_fetch(service=service, conn=conn)
+    
+    if parse:
+        logger.info("Start parsing emails")
+        run_mail_parse(conn=conn)
 
-        if canonicalize:
-            logger.info("Start canonicalize url")
-            run_url_enrichment(conn=conn)
+    if canonicalize:
+        logger.info("Start canonicalize url")
+        run_url_enrichment(conn=conn)
 
-        if promote:
-            logger.info("Start promoting job ads")
-            run_promote_job_ad(conn=conn)
+    if promote:
+        logger.info("Start promoting job ads")
+        run_promote_job_ad(conn=conn)

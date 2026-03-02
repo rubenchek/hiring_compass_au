@@ -17,16 +17,30 @@ class WorkspacePaths:
     """Represents the canonical workspace layout for the project."""
 
     root: Path = ROOT_DIR
-    data: Path = ROOT_DIR / "data"
-    db_path: Path = ROOT_DIR / "data" / "local" / "state.sqlite"
-    models: Path = ROOT_DIR / "models"
-    reports: Path = ROOT_DIR / "reports"
-    logs: Path = ROOT_DIR / "logs"
+    
+    @property
+    def data(self) -> Path:
+        return self.root / "data"
+    
+    @property
+    def db_path(self) -> Path:
+        return self.data / "local" / "state.sqlite"
+    @property
+    def models(self) -> Path:
+        return self.root / "models"
 
-    def iterable(self) -> Iterable[Path]:
+    @property
+    def reports(self) -> Path:
+        return self.root / "reports"
+
+    @property
+    def logs(self) -> Path:
+        return self.root / "logs"
+
+    def iter_dirs(self) -> Iterable[Path]:
         return (
             self.data,
-            self.db_path,
+            self.db_path.parent,
             self.models,
             self.reports,
             self.logs,
@@ -42,7 +56,7 @@ def ensure_workspace(paths: WorkspacePaths | None = None) -> list[tuple[Path, bo
     paths = paths or WorkspacePaths()
     created_state: list[tuple[Path, bool]] = []
 
-    for path in paths.iterable():
+    for path in paths.iter_dirs():
         existed_before = path.exists()
         path.mkdir(parents=True, exist_ok=True)
         created_state.append((path, not existed_before))
@@ -57,9 +71,3 @@ def format_created_state(state: list[tuple[Path, bool]]) -> str:
         prefix = "created" if created else "ok"
         lines.append(f"{prefix:>7}  {path.relative_to(ROOT_DIR)}")
     return "\n".join(lines)
-
-def get_workspace() -> WorkspacePaths:
-    """
-    Return a WorkspacePaths instance.
-    """
-    return WorkspacePaths()
