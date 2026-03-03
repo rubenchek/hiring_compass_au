@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.storage.db import utc_now_iso
-
 import sqlite3
 
+from hiring_compass_au.data.storage.db import utc_now_iso
 
 # ----------------------------
 # Fill database
 # ----------------------------
 
+
 def update_job_ads(
     conn: sqlite3.Connection,
     hits: list,
-) -> int:    
+    attempted_keys: set[tuple[str, str]] | None = None,
+) -> tuple[list, list, list, set]:
     now = utc_now_iso()
-    
+
     sql = """
     INSERT INTO job_ads (
         source,
@@ -57,22 +58,21 @@ def update_job_ads(
     """
     hits_upserted = []
     hits_failed = []
-    promoted_jobs =[]
-    keys = set()
-    
-    
+    promoted_jobs = []
+    attempted_keys = attempted_keys or set()
+
     for hit in hits:
         hit_id = hit["hit_id"]
         source = hit["source"]
         canonical_url = hit["canonical_url"]
         row = []
-        
+
         if not source or not canonical_url:
             hits_failed.append(hit_id)
             continue
-        
-        keys.add((source, canonical_url))
-          
+
+        attempted_keys.add((source, canonical_url))
+
         row = (
             source,
             hit["external_job_id"],
@@ -90,19 +90,19 @@ def update_job_ads(
             canonical_url,
             now,
             now,
-        )   
+        )
         hits_upserted.append(hit_id)
         promoted_jobs.append(conn.execute(sql, row).fetchone())
 
-    return promoted_jobs, hits_upserted, hits_failed
+    return promoted_jobs, hits_upserted, hits_failed, attempted_keys
 
 
-def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs):
+def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs: list):
     for row in promoted_jobs:
-        if row["source"]=="seek":
+        if row["source"] == "seek":
             for enrichment in ["jobDetails", "matchedSkills"]:
                 conn.execute(
-                """
+                    """
                 INSERT INTO job_ad_enrichment (
                     job_id,
                     enrich_type,
@@ -110,5 +110,5 @@ def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs):
                 VALUES (?, ?, ?)
                 ON CONFLICT (job_id, enrich_type) DO NOTHING
                 """,
-                (row["id"], enrichment, "pending")
+                    (row["id"], enrichment, "pending"),
                 )

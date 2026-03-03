@@ -14,9 +14,9 @@ class JobAlertsSettings(BaseSettings):
         env_prefix="HC_",
         env_file=(".env.local", ".env"),
         extra="ignore",
-        enable_decoding=False, 
+        enable_decoding=False,
     )
-    
+
     root: Path = WorkspacePaths().root
     gmail_client_secret: Path = Path("secrets/google_client_secret.json")
     gmail_token: Path = Path("secrets/gmail_token.json")
@@ -26,7 +26,7 @@ class JobAlertsSettings(BaseSettings):
     canon_timeout_s: float = 15
     canon_max_batches: int | None = None
     progress: bool = False
-    
+
     @field_validator("senders", mode="before")
     @classmethod
     def _parse_senders(cls, v):

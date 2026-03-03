@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import sqlite3
-from hiring_compass_au.data.storage.db import utc_now_iso
-from datetime import datetime,  timezone
+from datetime import UTC, datetime
 
+from hiring_compass_au.data.storage.db import utc_now_iso
 
 # ----------------------------
 # Fill database
 # ----------------------------
+
 
 def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int:
     """
@@ -17,9 +18,9 @@ def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int
     """
     if not messages:
         return 0
-    
+
     now = utc_now_iso()
-    
+
     rows = []
     for m in messages:
         msg_id = m.get("id")
@@ -27,13 +28,13 @@ def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int
         if not msg_id:
             continue
         rows.append((msg_id, thread_id, now, "indexed"))
-        
+
     if not rows:
         return 0
-    
+
     before = conn.total_changes
     cur = conn.cursor()
-    
+
     cur.executemany(
         """
         INSERT OR IGNORE INTO emails (message_id, thread_id, indexed_at, status)
@@ -41,7 +42,7 @@ def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int
         """,
         rows,
     )
-    
+
     conn.commit()
     after = conn.total_changes
     return after - before
@@ -51,38 +52,56 @@ def upsert_indexed_emails(conn: sqlite3.Connection, messages: list[dict]) -> int
 # Update database
 # ----------------------------
 
+
 def update_fetched_email_metadata(conn: sqlite3.Connection, fetched_mail_batch: list[dict]) -> int:
     # TODO ajouter template
-    
+
     if not fetched_mail_batch:
         return 0
-    
+
     now = utc_now_iso()
-    
+
     rows = []
     for m in fetched_mail_batch:
         message_id = m.get("message_id")
         if not message_id:
             continue
-        
+
         from_email = m.get("from_email")
         subject = m.get("subject")
         internal_date_ms = m.get("internal_date_ms")
-        received_at = datetime.fromtimestamp(internal_date_ms / 1000, tz=timezone.utc).isoformat(timespec="seconds")
+        if internal_date_ms is None:
+            received_at = None
+        else:
+            received_at = datetime.fromtimestamp(
+                internal_date_ms / 1000,
+                tz=UTC,
+            ).isoformat(timespec="seconds")
         html_raw = m.get("html_raw")
         error = m.get("error")
-        
+
         status = "fetch_error" if error else "fetched"
 
-            
-        rows.append((from_email, subject, internal_date_ms, received_at, html_raw, error, status, now, message_id))
-    
+        rows.append(
+            (
+                from_email,
+                subject,
+                internal_date_ms,
+                received_at,
+                html_raw,
+                error,
+                status,
+                now,
+                message_id,
+            )
+        )
+
     if not rows:
         return 0
 
     before = conn.total_changes
     cur = conn.cursor()
-    
+
     cur.executemany(
         """
         UPDATE emails 
@@ -100,7 +119,7 @@ def update_fetched_email_metadata(conn: sqlite3.Connection, fetched_mail_batch: 
         """,
         rows,
     )
-    
+
     conn.commit()
     after = conn.total_changes
     return after - before
@@ -111,9 +130,9 @@ def update_parsed_email(
     message_id: str,
     parser_cfg: dict = None,
     hit_parsed_count: int = 0,
-    parsed_confidence : int = 0,
+    parsed_confidence: int = 0,
     supported: bool = True,
-    error: str = None
+    error: str = None,
 ) -> int:
     """
     Update email row after parsing.
@@ -123,6 +142,13 @@ def update_parsed_email(
     - supported=True and parsed_count>0  => status='parsed'
     """
     now = utc_now_iso()
+
+    if parser_cfg:
+        parser_name = parser_cfg["parser_name"]
+        parser_version = parser_cfg["parser_version"]
+    else:
+        parser_name = parser_version = None
+
     if error:
         status = "parsed_error"
     elif not supported:
@@ -132,7 +158,7 @@ def update_parsed_email(
     else:
         status = "parsed"
 
-    conn.execute(
+    cur = conn.execute(
         """
         UPDATE emails
         SET
@@ -145,17 +171,29 @@ def update_parsed_email(
             error = ?
         WHERE message_id = ?
         """,
-        (status, now, parser_cfg["parser_name"], parser_cfg["parser_version"], int(hit_parsed_count), parsed_confidence, error, message_id),
+        (
+            status,
+            now,
+            parser_name,
+            parser_version,
+            int(hit_parsed_count),
+            parsed_confidence,
+            error,
+            message_id,
+        ),
     )
+
+    return int(cur.rowcount or 0)
 
 
 # ----------------------------
 # Request database
 # ----------------------------
 
+
 def get_last_internal_date_ms(conn: sqlite3.Connection, from_email: str) -> int | None:
-    cur= conn.cursor()
-    
+    cur = conn.cursor()
+
     if from_email is None:
         cur.execute(
             """
@@ -174,7 +212,7 @@ def get_last_internal_date_ms(conn: sqlite3.Connection, from_email: str) -> int 
             """,
             (from_email,),
         )
-        
+
     (value,) = cur.fetchone()
     return value
 
@@ -203,6 +241,4 @@ def get_fetched_emails_to_parse(conn: sqlite3.Connection):
         ORDER BY internal_date_ms
         """
     )
-    for row in cur:
-        yield row
-
+    yield from cur

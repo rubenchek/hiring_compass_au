@@ -1,43 +1,41 @@
-from bs4 import BeautifulSoup
-from collections.abc import Iterator
-import re
 import hashlib
+import re
+from collections.abc import Iterator
 
+from bs4 import BeautifulSoup
 
 # ---- Constants / patterns ----
 
 SEEK_TRACKING_PREFIX = "email.s.seek.com.au/uni/ss/c/"
-TITLE_STYLE_MARKER = ("color:#2e3849", "font-size:16px","font-weight:700")
-COMPANY_STYLE_MARKER = ("color:#5a6881", "font-size:14px", "font-weight:400")   
+TITLE_STYLE_MARKER = ("color:#2e3849", "font-size:16px", "font-weight:700")
+COMPANY_STYLE_MARKER = ("color:#5a6881", "font-size:14px", "font-weight:400")
 
 POSTED_ON_RE = re.compile(r"^Posted on \d{1,2} [A-Za-z]{3,9} \d{4}$")
 
 CTA_TITLE_RE = re.compile(r"\b(view|apply|details|see|open)\b", re.I)
 STATE_RE = re.compile(r"\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b")
 
-STATE_SET = {"NSW","VIC","QLD","SA","WA","TAS","ACT","NT"}
+STATE_SET = {"NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"}
 LOC_RE = re.compile(
     r"^(?:(?P<suburb>.+?),\s*)?(?P<city>.+?)\s+(?P<state>NSW|VIC|QLD|SA|WA|TAS|ACT|NT)$"
-    )
+)
 
 MONEY_RE = re.compile(r"\$[\d,]+")
-MONEY_DOLLAR_RE = re.compile(
-    r"\$\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*([kK])?"
-)
-MONEY_K_RE = re.compile(
-    r"(?<![\w$])([0-9]+(?:\.[0-9]+)?)\s*[kK](?!\w)"
-)
+MONEY_DOLLAR_RE = re.compile(r"\$\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*([kK])?")
+MONEY_K_RE = re.compile(r"(?<![\w$])([0-9]+(?:\.[0-9]+)?)\s*[kK](?!\w)")
 SALARY_HINT_RE = re.compile(
-    r"\b(salary|super|package|per\s+year|p\.a\.|bonus|incentive|discount)\b", re.I,
-    )
+    r"\b(salary|super|package|per\s+year|p\.a\.|bonus|incentive|discount)\b",
+    re.I,
+)
 
 RATE_YEAR_RE = re.compile(r"(per\s+year|per\s+annum|p\.?\s*a\.?|pa)\b", re.I)
 RATE_MONTH_RE = re.compile(r"(per\s+month|p\.?\s*m\.?|pm|monthly)\b", re.I)
-RATE_DAY_RE  = re.compile(r"(per\s+day|p\.?\s*d\.?|pd|daily)\b", re.I)
+RATE_DAY_RE = re.compile(r"(per\s+day|p\.?\s*d\.?|pd|daily)\b", re.I)
 RATE_HOUR_RE = re.compile(r"(per\s+hour|p\.?\s*h\.?|ph|hourly)\b", re.I)
 
 
 # ---- Small utils ----
+
 
 def _style_lower(tag) -> str:
     return (tag.get("style") or "").lower()
@@ -55,7 +53,9 @@ def is_noise_line(s: str) -> bool:
 def norm(s: str | None) -> str:
     return _norm_space((s or "").lower())
 
+
 # ---- Anchor selection ----
+
 
 def is_seek_job_anchor(a) -> bool:
     """Heuristic filter for SEEK job-card anchors.
@@ -63,11 +63,11 @@ def is_seek_job_anchor(a) -> bool:
     Returns True if the <a> tag looks like a SEEK tracking link AND contains
     enough short <div> text blocks to resemble a job card (vs. header/footer links).
     """
-    
+
     href = a.get("href", "")
     if SEEK_TRACKING_PREFIX not in href:
         return False
-    
+
     div_texts = [d.get_text(" ", strip=True) for d in a.find_all("div")]
     div_texts = [t for t in div_texts if t]
     return len(div_texts) >= 3
@@ -91,6 +91,7 @@ def collect_candidate_texts(a, max_len: int = 120):
 
 
 # ---- Field extraction ----
+
 
 def extract_title(cands):
     """Extract the job title from candidate snippets using inline style markers.
@@ -120,7 +121,7 @@ def extract_company(cands):
                 continue
             return txt
     return None
-    
+
 
 def best_location(texts, title=None, company=None):
     """Pick the most likely location line among candidate texts.
@@ -135,13 +136,13 @@ def best_location(texts, title=None, company=None):
 
     def penalty(t: str) -> int:
         p = 0
-        p += len(t)                 # longer is worse
-        p += 5 * len(t.split())     # more words is worse
+        p += len(t)  # longer is worse
+        p += 5 * len(t.split())  # more words is worse
         if title and title in t:
             p += 500
         if company and company in t:
             p += 500
-        if MONEY_RE.search(t):      # likely salary, not pure location
+        if MONEY_RE.search(t):  # likely salary, not pure location
             p += 500
         return p
 
@@ -157,24 +158,24 @@ def extract_location(texts, title=None, company=None):
     Returns a dict with keys: suburb, city, state, location_raw (all may be None).
     """
     location_text = best_location(texts, title, company)
-    
+
     result = {"suburb": None, "city": None, "state": None, "location_raw": None}
-    
+
     if not location_text:
         return result
 
     s = _norm_space(location_text)
-    
+
     m = LOC_RE.match(s)
     if not m:
         parts = s.split()
         state = parts[-1] if parts and parts[-1] in STATE_SET else None
         result.update({"state": state, "location_raw": s})
         return result
-    
+
     result.update(m.groupdict())
     result["location_raw"] = s
-    
+
     return result
 
 
@@ -201,11 +202,11 @@ def best_salary(texts, location_raw=None):
 def parse_amounts(s: str) -> list[float]:
     s = s.strip()
     nums: list[float] = []
-    
+
     # $ amounts (optionally with k/K)
     for n_str, k_flag in MONEY_DOLLAR_RE.findall(s):
         v = float(n_str.replace(",", ""))
-        if k_flag and v<=2000:
+        if k_flag and v <= 2000:
             v *= 1000.0
         nums.append(v)
 
@@ -213,32 +214,18 @@ def parse_amounts(s: str) -> list[float]:
     if "$" not in s:
         for n_str in MONEY_K_RE.findall(s):
             nums.append(float(n_str) * 1000.0)
-            
-    # m = RANGE_K_PROP_RE.search(s)
-    # if m:
-    #     a = float(m.group("a"))
-    #     b = float(m.group("b"))
-    #     ka = bool(m.group("ka"))
-    #     kb = bool(m.group("kb"))
-    #     if ka ^ kb:
-    #         ka = kb = True
-    #     if ka:
-    #         a *= 1000.0
-    #     if kb:
-    #         b *= 1000.0
-    #     nums = [a,b]
-    
-    if not nums or len(nums)<=1:
+
+    if not nums or len(nums) <= 1:
         return nums
-    
+
     # sanity check
-    lo=min(nums) 
-    hi=max(nums)
-    
-    if len(nums)==2 and lo!=0 and hi/lo >= 500 :
+    lo = min(nums)
+    hi = max(nums)
+
+    if len(nums) == 2 and lo != 0 and hi / lo >= 500:
         index = nums.index(lo)
-        nums[index] = lo*1000
-        
+        nums[index] = lo * 1000
+
     return nums
 
 
@@ -246,7 +233,7 @@ def detect_rate_type(s: str):
     """Infer salary period from text (hour/day/year) using simple keyword patterns.
 
     Returns one of: 'hour', 'day', 'year', or None if no period is detected.
-    """   
+    """
     if RATE_HOUR_RE.search(s):
         return "hour"
     if RATE_DAY_RE.search(s):
@@ -258,25 +245,20 @@ def detect_rate_type(s: str):
     return None
 
 
-def extract_salary(texts, location_raw=None):   
+def extract_salary(texts, location_raw=None):
     """Extract salary range and period from candidate texts.
 
     Selects a salary line via best_salary(), normalizes whitespace, detects period,
     and parses 1 or 2 monetary values when present.
 
     Returns a dict with keys: salary_min, salary_max, salary_period, salary_raw.
-    """ 
-    result = {
-        "salary_min": None, 
-        "salary_max": None,
-        "salary_period": None,
-        "salary_raw": None
-    }
-    
+    """
+    result = {"salary_min": None, "salary_max": None, "salary_period": None, "salary_raw": None}
+
     salary_text = best_salary(texts, location_raw)
     if not salary_text:
         return result
-    
+
     raw = _norm_space(salary_text)
     result["salary_raw"] = raw
     result["salary_period"] = detect_rate_type(result["salary_raw"])
@@ -284,7 +266,7 @@ def extract_salary(texts, location_raw=None):
     nums = parse_amounts(raw)
     if not nums:
         return result
-    
+
     if result["salary_period"] is None and max(nums) >= 1000:
         result["salary_period"] = "year"
 
@@ -294,12 +276,12 @@ def extract_salary(texts, location_raw=None):
         result["salary_max"] = max(lo, hi)
         return result
 
-    result["salary_min"] =  nums[0]
+    result["salary_min"] = nums[0]
     result["salary_max"] = nums[0]
     return result
 
 
-def compute_hit_confidence(hit : dict) -> int:
+def compute_hit_confidence(hit: dict) -> int:
     """
     Confidence that this extracted payload is a real job-card and reasonably parsed.
     Returns int in [0, 100].
@@ -311,14 +293,12 @@ def compute_hit_confidence(hit : dict) -> int:
 
     state = hit.get("state")
     city = hit.get("city")
-    suburb = hit.get("suburb")
 
     salary_raw = (hit.get("salary_raw") or "").strip()
     salary_min = hit.get("salary_min")
     salary_max = hit.get("salary_max")
     salary_period = hit.get("salary_period")
-    
-    
+
     # --- Must-have gating ---
     missing_must = 0
     if not title:
@@ -327,7 +307,7 @@ def compute_hit_confidence(hit : dict) -> int:
         missing_must += 1
     if not location_raw:
         missing_must += 1
-    
+
     if missing_must == 3:
         return 0
     if missing_must == 2:
@@ -337,13 +317,13 @@ def compute_hit_confidence(hit : dict) -> int:
     else:
         base = 70
     score = base
-    
+
     # --- Bonuses (structure & richness) ---
     if state:
         score += 8
     if city:
         score += 6
-    
+
     # Salary: raw is the strongest signal, then parsed numbers, then period
     if salary_raw:
         score += 10
@@ -357,11 +337,16 @@ def compute_hit_confidence(hit : dict) -> int:
     # Debug_lines count as a weak sanity signal
     debug_lines = hit.get("debug_lines") or []
     if isinstance(debug_lines, list) and debug_lines:
-        norm = lambda s: " ".join(str(s).split()).strip().lower()
-        unique_cnt = len({norm(x) for x in debug_lines if norm(x)})
-        total_cnt = len(debug_lines)
+
+        def norm_line(s) -> str:
+            return " ".join(str(s).split()).strip().lower()
+
+        normed = [norm_line(x) for x in debug_lines]
+        normed = [x for x in normed if x]
+        unique_cnt = len(set(normed))
+        total_cnt = len(normed)
         dup_ratio = 1.0 - (unique_cnt / total_cnt)
-        
+
         if 3 <= unique_cnt <= 7:
             score += 3
         elif unique_cnt < 3:
@@ -371,7 +356,7 @@ def compute_hit_confidence(hit : dict) -> int:
 
         if dup_ratio > 0.5:
             score -= 2
-            
+
     # --- Penalties (sanity checks) ---
     if len(title) < 4:
         score -= 25
@@ -380,7 +365,7 @@ def compute_hit_confidence(hit : dict) -> int:
     if location_raw and MONEY_RE.search(location_raw):
         score -= 15
     if isinstance(debug_lines, list):
-        if  len(debug_lines) <= 3 or len(debug_lines) >= 10:
+        if len(debug_lines) <= 3 or len(debug_lines) >= 10:
             score -= 10
 
     score = max(0, min(100, score))
@@ -398,24 +383,24 @@ def extract_job_from_anchor(a) -> dict:
     cands = collect_candidate_texts(a)
     texts = [txt for _, txt in cands]
     texts = [t for t in texts if not is_noise_line(t)]
-    
+
     title = extract_title(cands)
     company = extract_company(cands)
-    
+
     location_dict = extract_location(texts, title=title, company=company)
     location_raw = location_dict["location_raw"]
-    
+
     salary_dict = extract_salary(texts, location_raw=location_raw)
     salary_period = salary_dict["salary_period"]
-    
+
     fingerprint = None
     if title and company and location_raw:
         fingerprint = hashlib.sha1(
-            f"{norm(title)}|{norm(company)}|{norm(location_raw)}|{norm(salary_period)}".encode("utf-8")
+            f"{norm(title)}|{norm(company)}|{norm(location_raw)}|{norm(salary_period)}".encode()
         ).hexdigest()[:16]
 
     hit.update(
-        {   
+        {
             "title": title,
             "company": company,
             **location_dict,
@@ -425,12 +410,12 @@ def extract_job_from_anchor(a) -> dict:
             "fingerprint": fingerprint,
         }
     )
-    
-    #TODO ajouter le hit_context
-    
+
+    # TODO ajouter le hit_context
+
     hit["hit_confidence"] = compute_hit_confidence(hit)
 
-    return hit 
+    return hit
 
 
 def parse_seek_email(html) -> Iterator[dict]:
@@ -438,8 +423,11 @@ def parse_seek_email(html) -> Iterator[dict]:
 
     Scans the document for SEEK job-card anchors and yields one dict per job card.
     """
+    if not html or not str(html).strip():
+        return
+
     soup = BeautifulSoup(html, "html.parser")
-    
+
     for a in soup.find_all("a", href=True):
-        if is_seek_job_anchor(a): 
+        if is_seek_job_anchor(a):
             yield extract_job_from_anchor(a)

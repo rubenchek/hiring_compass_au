@@ -5,7 +5,7 @@ import sqlite3
 
 def init_email_table(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
-    
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS emails (
@@ -78,7 +78,7 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
             promote_reason    TEXT,
             
             -- Canonicalisation
-            job_id            TEXT,
+            external_job_id   TEXT,
             canonical_url     TEXT,
             canonical_status  TEXT NOT NULL DEFAULT 'pending'
                 CHECK (canonical_status IN ('pending','ok','retry','error')),
@@ -94,8 +94,8 @@ def init_email_job_hits_table(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
-    
-    
+
+
 def init_job_ads_table(conn: sqlite3.Connection) -> None:
     cur = conn.cursor()
     cur.execute(
@@ -128,11 +128,11 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
-    
+
 
 def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
-    
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS job_ad_enrichment(
@@ -153,28 +153,28 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
         """
     )
     conn.commit()
-    
-    
+
+
 def init_email_job_ads_table(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
-    
+
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS email_job_ads(
             message_id    TEXT NOT NULL,
-            job_id        TEXT NOT NULL,
+            job_ad_id     INTEGER NOT NULL,
             out_url       TEXT,
             
-            PRIMARY KEY (message_id, job_id),
+            PRIMARY KEY (message_id, job_ad_id),
             
             FOREIGN KEY (message_id) REFERENCES emails(message_id) ON DELETE CASCADE,
-            FOREIGN KEY (job_id)     REFERENCES job_ads(job_id)   ON DELETE CASCADE
+            FOREIGN KEY (job_ad_id) REFERENCES job_ads(id) ON DELETE CASCADE
         );
         """
     )
     conn.commit()
 
-    
+
 def init_all_tables(conn):
     init_email_table(conn)
     init_email_job_hits_table(conn)

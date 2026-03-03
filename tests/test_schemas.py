@@ -16,6 +16,7 @@ def _base_jobad_kwargs():
         url="https://www.seek.com.au/job/123",
     )
 
+
 def test_jobad_minimal_is_valid():
     ad = JobAd(**_base_jobad_kwargs())
     assert ad.source == Source.SEEK
@@ -34,11 +35,12 @@ def test_jobad_rejects_empty_title():
             url="https://www.seek.com.au/job/12345",
         )
 
+
 def test_jobad_parses_employment_type_enum():
     ad = JobAd(employment_type="contract/temp", **_base_jobad_kwargs())
     assert ad.employment_type == EmploymentType.CONTRACT_TEMP
-    
-    
+
+
 def test_role_valid_enum():
     ad = JobAd(role=JobRole.DATA_ENGINEER, **_base_jobad_kwargs())
     assert ad.role == JobRole.DATA_ENGINEER
@@ -52,7 +54,8 @@ def test_role_valid_string_converted():
 def test_role_unknown_fallback_to_other():
     ad = JobAd(role="AI Wizard Ninja", **_base_jobad_kwargs())
     assert ad.role == JobRole.OTHER
-    
+
+
 def test_sector_unknown_fallback_to_other():
     ad = JobAd(sector="Space Mining", **_base_jobad_kwargs())
     assert ad.sector == Sector.OTHER

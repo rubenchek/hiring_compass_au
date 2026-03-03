@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import sqlite3
 import json
-from hiring_compass_au.data.storage.db import compute_backoff_minutes, utc_now_iso
-from datetime import datetime, timedelta, timezone
+import sqlite3
+from datetime import UTC, datetime, timedelta
 
+from hiring_compass_au.data.storage.db import compute_backoff_minutes, utc_now_iso
 
 # ----------------------------
 # Fill database
 # ----------------------------
+
 
 def upsert_email_job_hits(
     conn: sqlite3.Connection,
@@ -20,8 +21,8 @@ def upsert_email_job_hits(
     Upsert all hits for a single email.
     - No commit here (runner owns transaction).
     Returns number of parsed emails.
-    """ 
-    
+    """
+
     sql = """
     INSERT INTO email_job_hits (
         message_id,
@@ -63,10 +64,10 @@ def upsert_email_job_hits(
         parser_version = excluded.parser_version
     """
     rows = []
-    for hit in valid_hits:       
+    for hit in valid_hits:
         debug_lines = hit.get("debug_lines")
         debug_lines_json = json.dumps(debug_lines) if isinstance(debug_lines, list) else None
-        
+
         row = (
             message_id,
             parser_cfg["source"],
@@ -91,7 +92,7 @@ def upsert_email_job_hits(
 
     if rows:
         conn.executemany(sql, rows)
-    
+
     return len(rows)
 
 
@@ -99,10 +100,11 @@ def upsert_email_job_hits(
 # Update database
 # ----------------------------
 
+
 def update_job_hit_canonicalization(
     conn,
-    hit_id: int,                      # ou (message_id, hit_rank) etc selon ta PK
-    outcome: str,                     # "ok" | "retry" | "error"
+    hit_id: int,
+    outcome: str,
     http_status: int | None = None,
     canonical_url: str | None = None,
     external_job_id: str | None = None,
@@ -110,9 +112,9 @@ def update_job_hit_canonicalization(
 ) -> None:
     if outcome not in {"ok", "retry", "error"}:
         raise ValueError(f"Invalid outcome: {outcome}")
-    
+
     now = utc_now_iso()
-    
+
     # Fetch current attempt_count so backoff uses the incremented value
     row = conn.execute(
         "SELECT attempt_count FROM email_job_hits WHERE hit_id = ?",
@@ -120,26 +122,26 @@ def update_job_hit_canonicalization(
     ).fetchone()
     if row is None:
         raise ValueError(f"email_job_hits hit_id not found: {hit_id}")
-    
-    attempt_count_before = int(row["attempt_count"]) 
+
+    attempt_count_before = int(row["attempt_count"])
     attempt_count_after = attempt_count_before + 1
-    
+
     next_retry_at = None
-    
+
     if outcome == "ok":
         canon_error = None
         next_retry_at = None
-        promote_status = 'pending'
+        promote_status = "pending"
 
     elif outcome == "retry":
         delay_min = compute_backoff_minutes(attempt_count_after)
-        dt = datetime.now(timezone.utc) + timedelta(minutes=delay_min)
+        dt = datetime.now(UTC) + timedelta(minutes=delay_min)
         next_retry_at = dt.replace(microsecond=0).isoformat()
-        promote_status = 'pending'
-    
+        promote_status = "pending"
+
     else:
         next_retry_at = None
-        promote_status = 'rejected'
+        promote_status = "rejected"
 
     conn.execute(
         """
@@ -169,14 +171,12 @@ def update_job_hit_canonicalization(
             hit_id,
         ),
     )
-    
-    
+
+
 def update_promoted_job_hits(
-    conn: sqlite3.Connection, 
-    hits_upserted: list, 
-    hits_failed: list,
-    failed_reason = None):
-    sql= """
+    conn: sqlite3.Connection, hits_upserted: list, hits_failed: list, failed_reason=None
+) -> int:
+    sql = """
     UPDATE email_job_hits
     SET promote_status = ?, promote_reason = ?
     WHERE hit_id = ?
@@ -194,13 +194,19 @@ def update_promoted_job_hits(
             continue
         rows.append(("rejected", failed_reason, int(hit_id)))
 
-    if rows:
-        conn.executemany(sql, rows)
+    if not rows:
+        return 0
+
+    before = conn.total_changes
+    conn.executemany(sql, rows)
+    after = conn.total_changes
+    return after - before
 
 
 # ----------------------------
 # Request database
 # ----------------------------
+
 
 def count_urls_to_canonicalize(conn: sqlite3.Connection, max_attempts: int = 10) -> int:
     now = utc_now_iso()
@@ -219,21 +225,23 @@ def count_urls_to_canonicalize(conn: sqlite3.Connection, max_attempts: int = 10)
     return int(row[0])
 
 
-
-def get_batch_url_to_canonicalize(conn: sqlite3.Connection, limit: int, max_attempts: int = 10,) -> list[sqlite3.Row]:
+def get_batch_url_to_canonicalize(
+    conn: sqlite3.Connection,
+    limit: int,
+    max_attempts: int = 10,
+) -> list[sqlite3.Row]:
     """
     Returns a batch of email_job_hits rows to canonicalize.
     Expects sqlite row_factory=sqlite3.Row.
     """
     now = utc_now_iso()
-    
+
     return conn.execute(
         """
         SELECT hit_id, out_url
         FROM email_job_hits
         WHERE
             canonical_status IN ('pending','retry')
-            AND promote_status IN ('new')
             AND attempt_count < ?
             AND (next_retry_at IS NULL OR next_retry_at <= ?)
             AND TRIM(out_url) <> ''
@@ -252,7 +260,7 @@ def get_batch_url_to_canonicalize(conn: sqlite3.Connection, limit: int, max_atte
 
 def get_promote_pending_job_hits(conn: sqlite3.Connection, limit: int = 200):
     return conn.execute(
-    """
+        """
     SELECT 
         hit_id,
         external_job_id, 
@@ -280,5 +288,5 @@ def get_promote_pending_job_hits(conn: sqlite3.Connection, limit: int = 200):
     ORDER BY hit_id
     LIMIT ?
     """,
-    (limit,),
+        (limit,),
     )
