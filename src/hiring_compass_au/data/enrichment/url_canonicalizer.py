@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse, urlunparse
 import logging
 import re
+from urllib.parse import urlparse, urlunparse
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -17,16 +18,15 @@ class CanonicalizeError(Exception):
 
 
 def head_location(
-    session: requests.Session, 
-    out_url: str, 
+    session: requests.Session,
+    out_url: str,
     timeout: float = 15.0,
-    ) -> tuple[int,str | None]:    
-    
+) -> tuple[int, str | None]:
     r = session.head(out_url, allow_redirects=False, timeout=timeout)
     loc = r.headers.get("Location")
     if loc:
         return r.status_code, loc
-    
+
     r = session.get(out_url, allow_redirects=False, timeout=timeout)
     return r.status_code, r.headers.get("Location")
 
@@ -43,15 +43,13 @@ def canonicalize_seek_location(location_url: str) -> tuple[str, str]:
 
     job_id = m.group("job_id")
     canonical_path = f"/job/{job_id}"
-    canonical_url = urlunparse((p.scheme, p.netloc, canonical_path, "", "", ""))    
-    return job_id, canonical_url 
-
+    canonical_url = urlunparse((p.scheme, p.netloc, canonical_path, "", "", ""))
+    return job_id, canonical_url
 
 
 def resolve_to_canonical(
-    session: requests.Session,
-    out_url: str,
-    timeout: float = 15.0) -> tuple[str, str, int]:
+    session: requests.Session, out_url: str, timeout: float = 15.0
+) -> tuple[str, str, int]:
     """
     out_url = url from email (tracking).
     Returns (job_id, canonical_url, http_status).
@@ -61,11 +59,10 @@ def resolve_to_canonical(
         raise CanonicalizeError(
             f"No Location header (status={http_status}) for out_url={out_url}",
             http_status=http_status,
-            )
+        )
     try:
         job_id, canonical_url = canonicalize_seek_location(location)
     except ValueError as e:
         raise CanonicalizeError(str(e), http_status=http_status) from e
-    
+
     return job_id, canonical_url, http_status
-    

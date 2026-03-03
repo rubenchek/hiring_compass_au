@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
 from hiring_compass_au.settings import WorkspaceSettings
 from hiring_compass_au.workspace import WorkspacePaths
-
-from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
 
 
 def test_workspace_root_autodetected_contains_pyproject():

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from hiring_compass_au.workspace import WorkspacePaths, ensure_workspace
 
+
 def make_tmp_workspace(tmp_path):
     root = tmp_path
-    return WorkspacePaths(
-        root=root
-    )
-    
+    return WorkspacePaths(root=root)
+
+
 def test_ensure_workspace_creates_then_is_idempotent(tmp_path):
     ws = make_tmp_workspace(tmp_path)
 

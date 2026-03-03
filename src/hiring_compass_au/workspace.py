@@ -17,14 +17,15 @@ class WorkspacePaths:
     """Represents the canonical workspace layout for the project."""
 
     root: Path = ROOT_DIR
-    
+
     @property
     def data(self) -> Path:
         return self.root / "data"
-    
+
     @property
     def db_path(self) -> Path:
         return self.data / "local" / "state.sqlite"
+
     @property
     def models(self) -> Path:
         return self.root / "models"

@@ -7,10 +7,16 @@ bootstrap:
 	python -m scripts.bootstrap_workspace
 
 lint:
-	ruff check src
+	ruff check src tests
 
 lint-fix:
-	ruff check src --fix
+	ruff check src tests --fix
+
+format-check:
+	ruff format --check src tests
+
+format:
+	ruff format src tests
 
 test:
 	pytest -q

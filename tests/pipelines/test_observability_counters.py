@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import requests
 import sqlite3
 import time
 
-from hiring_compass_au.data.storage.schema import init_all_tables
+import requests
+
+from hiring_compass_au.data.enrichment.url_canonicalizer import CanonicalizeError
 from hiring_compass_au.data.ingestion.gmail import mail_fetch as mail_fetch_mod
 from hiring_compass_au.data.pipelines.job_alerts import mail_parse_runner as mail_parse_mod
 from hiring_compass_au.data.pipelines.job_alerts import url_canonicalize_runner as canon_mod
 from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
-from hiring_compass_au.data.enrichment.url_canonicalizer import CanonicalizeError
+from hiring_compass_au.data.storage.schema import init_all_tables
 
 
 def _conn():
@@ -86,11 +87,13 @@ def test_url_canonicalize_counters(monkeypatch):
     conn = _conn()
     now = "2026-01-01T00:00:00+00:00"
     conn.execute(
-        "INSERT INTO emails(message_id, thread_id, status, indexed_at) VALUES ('m','t','indexed',?)",
+        "INSERT INTO emails(message_id, thread_id, status, indexed_at) "
+        "VALUES ('m','t','indexed',?)",
         (now,),
     )
     conn.executemany(
-        "INSERT INTO email_job_hits(message_id, out_url, source, canonical_status) VALUES (?, ?, 'seek', 'pending')",
+        "INSERT INTO email_job_hits(message_id, out_url, source, canonical_status) "
+        "VALUES (?, ?, 'seek', 'pending')",
         [("m", "u1"), ("m", "u2"), ("m", "u3")],
     )
     conn.commit()
@@ -115,18 +118,24 @@ def test_promote_counters_new_vs_updated():
     conn = _conn()
     now = "2026-01-01T00:00:00+00:00"
     conn.execute(
-        "INSERT INTO emails(message_id, thread_id, status, indexed_at) VALUES ('m','t','indexed',?)",
+        "INSERT INTO emails(message_id, thread_id, status, indexed_at) "
+        "VALUES ('m','t','indexed',?)",
         (now,),
     )
     # job_ads existing (will make one hit count as "updated")
     conn.execute(
-        "INSERT INTO job_ads(source, canonical_url, first_seen_at, last_seen_at) VALUES ('seek', 'c1', ?, ?)",
+        "INSERT INTO job_ads(source, canonical_url, first_seen_at, last_seen_at) "
+        "VALUES ('seek', 'c1', ?, ?)",
         (now, now),
     )
     # two hits to promote: one existing key, one new key
     conn.executemany(
-        "INSERT INTO email_job_hits(message_id, out_url, source, promote_status, canonical_status, canonical_url) "
-        "VALUES ('m', ?, 'seek', 'pending', 'ok', ?)",
+        """
+        INSERT INTO email_job_hits(
+            message_id, out_url, source, promote_status, canonical_status, canonical_url
+        ) 
+        VALUES ('m', ?, 'seek', 'pending', 'ok', ?)
+        """,
         [("o1", "c1"), ("o2", "c2")],
     )
     conn.commit()

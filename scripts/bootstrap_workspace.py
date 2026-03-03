@@ -5,7 +5,6 @@ Usage:
     make bootstrap
 """
 
-
 from hiring_compass_au.workspace import ensure_workspace, format_created_state
 
 
