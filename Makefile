@@ -24,5 +24,5 @@ test:
 job-alerts-dev:
 	docker compose run --rm job-alerts-dev
 
-job-alerts-prod:
-	docker compose run --rm job-alerts-prod
+notify:
+	docker compose -f docker-compose.yml run --rm notify-dev

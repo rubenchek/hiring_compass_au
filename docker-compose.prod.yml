@@ -1,14 +1,14 @@
 x-hc-image-common: &hc-image
-  hiring-compass-au:dev
+  rubenchek/hiring-compass-au:${HC_IMAGE_TAG:-latest}
 
-x-hc-env: &hc-env
-  HC_ROOT: /app/run/dev
+x-hc-env-prod: &hc-env
+  HC_ROOT: /app
   HC_SECRETS_DIR: /app/secrets
-  PYTHONPATH: /app/src
 
 x-hc-volumes-prod: &hc-volumes
-  - ./:/app
   - ./secrets:/app/secrets
+  - ./run/prod/data:/app/data
+  - ./run/prod/logs:/app/logs
 
 x-hc-entrypoint-job-alerts: &hc-entrypoint-job-alerts 
   ["python", "-m", "hiring_compass_au.data.pipelines.job_alerts"]
@@ -17,16 +17,14 @@ x-hc-command-job-alerts: &hc-command-job-alerts
   []
 
 services:
-  job-alerts-dev:
-    build: .
-    image: *hc-image 
-    working_dir: /app
+  job-alerts-prod:
+    image: *hc-image
     environment: *hc-env
     volumes: *hc-volumes
-    command: *hc-command-job-alerts 
+    command: *hc-command-job-alerts
     entrypoint: *hc-entrypoint-job-alerts 
     restart: "no"
-  
+
   job-alerts-oauth-prod:
     profiles: ["oauth"]
     image: *hc-image
@@ -39,12 +37,11 @@ services:
       - "8080:8080"
     volumes: *hc-volumes
     command: *hc-command-job-alerts
+    entrypoint: *hc-entrypoint-job-alerts 
     restart: "no"
-
-  notify-dev:
-    build: .
-    image: *hc-image 
-    working_dir: /app
+  
+  notify-prod:
+    image: *hc-image
     environment: *hc-env
     volumes: *hc-volumes
     command:
