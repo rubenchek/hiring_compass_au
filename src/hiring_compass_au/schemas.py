@@ -11,17 +11,20 @@ class Source(StrEnum):
     SEEK = "seek"
     LINKEDIN = "linkedin"
 
+
 class EmploymentType(StrEnum):
     FULL_TIME = "full-time"
     PART_TIME = "part-time"
-    CONTRACT_TEMP  = "contract/temp"
+    CONTRACT_TEMP = "contract/temp"
     CASUAL_VACATION = "casual/vacation"
-    
+
+
 class RemoteOption(StrEnum):
     ON_SITE = "on-site"
     HYBRID = "hybrid"
     REMOTE = "remote"
-    
+
+
 class JobRole(StrEnum):
     DATA_SCIENTIST = "data-scientist"
     DATA_ENGINEER = "data-engineer"
@@ -32,7 +35,7 @@ class JobRole(StrEnum):
     OTHER = "other"
 
 
-class Sector(StrEnum): 
+class Sector(StrEnum):
     FINANCE = "finance"
     ENVIRONMENT = "environment"
     HEALTH = "health"
@@ -40,28 +43,29 @@ class Sector(StrEnum):
     CONSULTING = "consulting"
     GOVERNMENT = "government"
     OTHER = "other"
-    
+
+
 class JobAd(BaseModel):
     # Provenance
     source: Source = Field(default=Source.SEEK)
     source_id: str = Field(min_length=1)
-    
+
     # Core
     title: str = Field(min_length=1)
     company: str | None = None
     location: str = Field(min_length=1)
     description: str = Field(min_length=1)
     url: HttpUrl
-    remote_option : RemoteOption | None = None
-    
+    remote_option: RemoteOption | None = None
+
     # Dates
     posted_at: date | None = None  # derived later from "posted X days ago"
     scraped_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    
+
     # Raw fields from source
     raw_salary: str | None = None
     employment_type: EmploymentType | None = None
-    
+
     # Enrichment (LLM or rules): keep BOTH raw + normalized
     role_raw: str | None = None
     role: JobRole | None = None
@@ -80,8 +84,7 @@ class JobAd(BaseModel):
             return JobRole(v)
         except Exception:
             return JobRole.OTHER
-        
-    
+
     @field_validator("sector", mode="before")
     @classmethod
     def fallback_unknown_sector(cls, v):

@@ -1,0 +1,58 @@
+x-hc-image-common: &hc-image
+  hiring-compass-au:dev
+
+x-hc-env: &hc-env
+  HC_ROOT: /app/run/dev
+  HC_SECRETS_DIR: /app/secrets
+  PYTHONPATH: /app/src
+
+x-hc-volumes-prod: &hc-volumes
+  - ./:/app
+  - ./secrets:/app/secrets
+
+x-hc-entrypoint-job-alerts: &hc-entrypoint-job-alerts 
+  ["python", "-m", "hiring_compass_au.data.pipelines.job_alerts"]
+
+x-hc-command-job-alerts: &hc-command-job-alerts 
+  []
+
+services:
+  job-alerts-dev:
+    build: .
+    image: *hc-image 
+    working_dir: /app
+    environment: *hc-env
+    volumes: *hc-volumes
+    command: *hc-command-job-alerts 
+    entrypoint: *hc-entrypoint-job-alerts 
+    restart: "no"
+  
+  job-alerts-oauth-prod:
+    profiles: ["oauth"]
+    image: *hc-image
+    environment:
+      <<: *hc-env
+      HC_GMAIL_OAUTH_HOST: 0.0.0.0
+      HC_GMAIL_OAUTH_PORT: 8080
+      HC_GMAIL_OAUTH_OPEN_BROWSER: "0"
+    ports:
+      - "8080:8080"
+    volumes: *hc-volumes
+    command: *hc-command-job-alerts
+    restart: "no"
+
+  notify-dev:
+    build: .
+    image: *hc-image 
+    working_dir: /app
+    environment: *hc-env
+    volumes: *hc-volumes
+    command:
+      - python
+      - -m
+      - hiring_compass_au.data.pipelines.job_alerts.ops.notify_telegram
+      - --attempts
+      - "${HC_ATTEMPTS:-1}"
+      - --exit-code
+      - "${HC_EXIT_CODE:-0}"
+    restart: "no"
