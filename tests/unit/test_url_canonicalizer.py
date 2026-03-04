@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from hiring_compass_au.data.enrichment.url_canonicalizer import (
+from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
     CanonicalizeError,
     canonicalize_seek_location,
     resolve_to_canonical,

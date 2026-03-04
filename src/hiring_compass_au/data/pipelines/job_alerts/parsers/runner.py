@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 
-from hiring_compass_au.data.parsers.gmail.parser_registry import parse_email
+from hiring_compass_au.data.pipelines.job_alerts.parsers.parser_registry import parse_email
 from hiring_compass_au.data.storage.hit_store import upsert_email_job_hits
 from hiring_compass_au.data.storage.mail_store import (
     get_fetched_emails_to_parse,
@@ -40,13 +40,15 @@ def compute_parsed_confidence(hit_confidences: list[int], hits_expected=None) ->
     return int(max(0, min(100, round(score))))
 
 
-def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int]:
+def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int, float | None]:
     mail_total = 0
     unsupported_total = 0
     hits_upserted_total = 0
     empty_total = 0
     error_total = 0
     emails_updated_total = 0
+    confidence_sum = 0
+    mail_supported_ok_total = 0
 
     for message in get_fetched_emails_to_parse(conn):
         mail_total += 1
@@ -72,6 +74,8 @@ def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int]:
                 hit_confidences,
                 hits_expected=parser_cfg.get("hits_expected"),
             )
+            confidence_sum += parsed_confidence
+            mail_supported_ok_total += 1
 
             hit_parsed_count = upsert_email_job_hits(
                 conn=conn,
@@ -87,7 +91,6 @@ def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int]:
                 parsed_confidence=parsed_confidence,
             )
             conn.commit()
-
             hits_upserted_total += hit_parsed_count
             if hit_parsed_count == 0:
                 empty_total += 1
@@ -100,14 +103,37 @@ def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int]:
             conn.commit()
             error_total += 1
 
-    logger.info(
-        "Mail parse finished: emails=%d hits_upserted=%d empty=%d error=%d unsupported=%d",
-        mail_total,
-        hits_upserted_total,
-        empty_total,
-        error_total,
-        unsupported_total,
+    confidence_mean = (
+        confidence_sum / mail_supported_ok_total if mail_supported_ok_total > 0 else None
     )
+
+    if confidence_mean is None:
+        logger.warning(
+            "Mail parse finished: emails=%d hits_upserted=%d empty=%d error=%d unsupported=%d "
+            "confidence=n/a (supported_ok=0)",
+            mail_total,
+            hits_upserted_total,
+            empty_total,
+            error_total,
+            unsupported_total,
+        )
+    else:
+        logger.info(
+            "Mail parse finished: emails=%d hits_upserted=%d empty=%d error=%d "
+            "unsupported=%d confidence=%.1f%%",
+            mail_total,
+            hits_upserted_total,
+            empty_total,
+            error_total,
+            unsupported_total,
+            confidence_mean,
+        )
+
+    if mail_total and hits_upserted_total == 0 and error_total == 0:
+        logger.warning("Mail parse produced 0 hits (possible template change?)")
+
+    if confidence_mean is not None and confidence_mean <= 65:
+        logger.warning("Mail parse confidence is low (%.1f%%)", confidence_mean)
 
     if emails_updated_total != mail_total:
         logger.warning(
@@ -116,7 +142,11 @@ def run_mail_parse(conn: sqlite3.Connection) -> tuple[int, int, int, int, int]:
             emails_updated_total,
         )
 
-    if mail_total and hits_upserted_total == 0 and error_total == 0:
-        logger.warning("Mail parse produced 0 hits (possible template change?)")
-
-    return mail_total, hits_upserted_total, empty_total, error_total, unsupported_total
+    return (
+        mail_total,
+        hits_upserted_total,
+        empty_total,
+        error_total,
+        unsupported_total,
+        confidence_mean,
+    )

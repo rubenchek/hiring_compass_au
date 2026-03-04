@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
 from hiring_compass_au.settings import WorkspaceSettings
-from hiring_compass_au.workspace import WorkspacePaths
 
 
-def test_workspace_root_autodetected_contains_pyproject():
+def test_workspace_root_is_absolute():
     ws = WorkspaceSettings()
-    assert (ws.root / "pyproject.toml").exists()
-    assert ws.root == WorkspacePaths().root
+    assert ws.root.is_absolute()
 
 
-def test_workspace_settings_defaults_are_absolute_and_under_root():
+def test_workspace_settings_defaults_are_absolute_and_under_root(monkeypatch):
+    monkeypatch.delenv("HC_ROOT", raising=False)
+
     ws = WorkspaceSettings()
     assert ws.root.is_absolute()
     assert ws.db_path.is_absolute()
@@ -35,6 +35,9 @@ def test_job_alerts_settings_resolves_secrets_under_root_and_parses_senders(monk
     ws = WorkspaceSettings()
     cfg = JobAlertsSettings(root=ws.root)
 
-    assert cfg.gmail_token == (tmp_path / "secrets/gmail_token.json").resolve()
-    assert cfg.gmail_client_secret == (tmp_path / "secrets/google_client_secret.json").resolve()
+    assert cfg.gmail_token_path == (cfg.repo_root / "secrets/gmail_token.json").resolve()
+    assert (
+        cfg.gmail_client_secret_path
+        == (cfg.repo_root / "secrets/google_client_secret.json").resolve()
+    )
     assert cfg.senders == ["a@x", "b@y"]

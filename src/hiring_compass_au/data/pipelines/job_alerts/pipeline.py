@@ -3,14 +3,14 @@ import sqlite3
 import time
 from pathlib import Path
 
-from hiring_compass_au.data.ingestion.gmail.auth_and_build import authenticate_and_build_service
-from hiring_compass_au.data.ingestion.gmail.mail_fetch import run_mail_fetch
-from hiring_compass_au.data.ingestion.gmail.mail_index import run_mail_index
-from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
-from hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner import run_mail_parse
-from hiring_compass_au.data.pipelines.job_alerts.url_canonicalize_runner import (
-    run_url_canonicalization,
+from hiring_compass_au.data.pipelines.job_alerts.enrichment.runner import run_url_canonicalization
+from hiring_compass_au.data.pipelines.job_alerts.ingestion.auth_and_build import (
+    authenticate_and_build_service,
 )
+from hiring_compass_au.data.pipelines.job_alerts.ingestion.mail_fetch import run_mail_fetch
+from hiring_compass_au.data.pipelines.job_alerts.ingestion.mail_index import run_mail_index
+from hiring_compass_au.data.pipelines.job_alerts.parsers.runner import run_mail_parse
+from hiring_compass_au.data.pipelines.job_alerts.promote.runner import run_promote_job_ad
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,11 @@ def _record_stage_error(results: dict, stage: str, e: Exception) -> None:
 
 def run_job_alert_pipeline(
     conn: sqlite3.Connection,
-    client_secret_path: Path,
-    token_path: Path,
+    gmail_client_secret_path: Path,
+    gmail_token_path: Path,
+    gmail_oauth_host: str,
+    gmail_oauth_port: int,
+    gmail_oauth_open_browser: bool,
     *,
     index: bool = True,
     fetch: bool = True,
@@ -53,7 +56,13 @@ def run_job_alert_pipeline(
     if index or fetch:
         t0 = time.monotonic()
         try:
-            service = authenticate_and_build_service(client_secret_path, token_path)
+            service = authenticate_and_build_service(
+                gmail_client_secret_path,
+                gmail_token_path,
+                gmail_oauth_host,
+                gmail_oauth_port,
+                gmail_oauth_open_browser,
+            )
         except Exception as e:
             _record_stage_error(results, "gmail_auth", e)
             e.hc_results = results
@@ -107,13 +116,14 @@ def run_job_alert_pipeline(
         t0 = time.monotonic()
         try:
             logger.info("Start parsing emails")
-            emails, hits_upserted, empty, error, unsupported = run_mail_parse(conn=conn)
+            emails, hits_upserted, empty, error, unsupported, confidence = run_mail_parse(conn=conn)
             results["parse"] = {
                 "emails": emails,
                 "hits_upserted": hits_upserted,
                 "empty": empty,
                 "error": error,
                 "unsupported": unsupported,
+                "confidence_mean": confidence,
             }
         except Exception as e:
             _record_stage_error(results, "parse", e)

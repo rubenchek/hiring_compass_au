@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 import requests
 
-from hiring_compass_au.data.pipelines.job_alerts.job_alerts_pipeline import run_job_alert_pipeline
+from hiring_compass_au.data.pipelines.job_alerts.pipeline import run_job_alert_pipeline
 from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
 from hiring_compass_au.data.storage.db import get_connection
 from hiring_compass_au.data.storage.schema import init_all_tables
@@ -39,6 +39,14 @@ def classify_exception_to_exit_code(e: Exception) -> int:
     except Exception:
         HttpError = None
 
+    try:
+        from google.auth.exceptions import TransportError
+    except Exception:
+        TransportError = None
+
+    if TransportError is not None and isinstance(e, TransportError):
+        return EXIT_TEMPFAIL
+
     if HttpError is not None and isinstance(e, HttpError):
         status = _google_http_status(e)
         if status in RETRYABLE_HTTP_STATUSES:
@@ -63,9 +71,9 @@ def main() -> int:
     logger = logging.getLogger(__name__)
 
     ws = WorkspaceSettings()
-    cfg = JobAlertsSettings(root=ws.root)
+    cfg = JobAlertsSettings()
 
-    ensure_workspace(WorkspacePaths(root=ws.root))
+    ensure_workspace(WorkspacePaths(root=ws.root), minimal=True)
 
     run_id = str(uuid.uuid4())
     started_at = datetime.now(UTC).replace(microsecond=0).isoformat()
@@ -77,26 +85,48 @@ def main() -> int:
 
     needs_gmail = (not args.no_index) or (not args.no_fetch)
 
-    if needs_gmail and not cfg.gmail_client_secret.exists():
+    startup = {
+        "event": "pipeline_start",
+        "run_id": run_id,
+        "root": str(ws.root),
+        "db_path": str(ws.db_path),
+        "logs_dir": str(ws.logs_dir),
+        "needs_gmail": needs_gmail,
+        "flags": {
+            "index": not args.no_index,
+            "fetch": not args.no_fetch,
+            "parse": not args.no_parse,
+            "canonicalize": not args.no_canonicalize,
+            "promote": not args.no_promote,
+        },
+    }
+    logger.info("%s", json.dumps(startup, ensure_ascii=False))
+
+    if needs_gmail and not cfg.gmail_client_secret_path.exists():
         exit_code = EXIT_FAIL
         error_type = "FileNotFoundError"
         error_message = (
-            f"Missing Gmail client secret file: {cfg.gmail_client_secret} "
+            f"Missing Gmail client secret file: {cfg.gmail_client_secret_path} "
             "(set HC_GMAIL_CLIENT_SECRET to override)"
         )
         logger.error("%s", error_message)
 
     if exit_code == EXIT_OK:
-        if needs_gmail and not cfg.gmail_token.exists():
-            logger.warning("Gmail token not found; OAuth flow may be required: %s", cfg.gmail_token)
+        if needs_gmail and not cfg.gmail_token_path.exists():
+            logger.warning(
+                "Gmail token not found; OAuth flow may be required: %s", cfg.gmail_token_path
+            )
         try:
             with get_connection(ws.db_path, sqlite3.Row) as conn:
                 init_all_tables(conn)
 
                 results = run_job_alert_pipeline(
                     conn,
-                    cfg.gmail_client_secret,
-                    cfg.gmail_token,
+                    cfg.gmail_client_secret_path,
+                    cfg.gmail_token_path,
+                    cfg.gmail_oauth_host,
+                    cfg.gmail_oauth_port,
+                    cfg.gmail_oauth_open_browser,
                     index=not args.no_index,
                     fetch=not args.no_fetch,
                     fetch_batch_size=cfg.fetch_batch_size,

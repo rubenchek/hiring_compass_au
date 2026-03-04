@@ -5,11 +5,13 @@ import time
 
 import requests
 
-from hiring_compass_au.data.enrichment.url_canonicalizer import CanonicalizeError
-from hiring_compass_au.data.ingestion.gmail import mail_fetch as mail_fetch_mod
-from hiring_compass_au.data.pipelines.job_alerts import mail_parse_runner as mail_parse_mod
-from hiring_compass_au.data.pipelines.job_alerts import url_canonicalize_runner as canon_mod
-from hiring_compass_au.data.pipelines.job_alerts.job_promote_runner import run_promote_job_ad
+from hiring_compass_au.data.pipelines.job_alerts.enrichment import runner as canon_mod
+from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
+    CanonicalizeError,
+)
+from hiring_compass_au.data.pipelines.job_alerts.ingestion import mail_fetch as mail_fetch_mod
+from hiring_compass_au.data.pipelines.job_alerts.parsers import runner as mail_parse_mod
+from hiring_compass_au.data.pipelines.job_alerts.promote.runner import run_promote_job_ad
 from hiring_compass_au.data.storage.schema import init_all_tables
 
 
@@ -79,8 +81,11 @@ def test_mail_parse_counters(monkeypatch):
 
     monkeypatch.setattr(mail_parse_mod, "parse_email", fake_parse_email)
 
-    emails, hits_upserted, empty, error, unsupported = mail_parse_mod.run_mail_parse(conn)
+    emails, hits_upserted, empty, error, unsupported, confidence = mail_parse_mod.run_mail_parse(
+        conn
+    )
     assert (emails, hits_upserted, empty, error, unsupported) == (2, 1, 0, 0, 1)
+    assert confidence is not None
 
 
 def test_url_canonicalize_counters(monkeypatch):

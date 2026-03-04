@@ -36,6 +36,12 @@ logs/*
 !logs/.gitkeep
 configs/
 secrets/
+**/state.sqlite
+**/pipeline_runs.jsonl
+
+# Local workspaces
+run/*
+!run/.gitkeep
 
 # Jupyter
 .ipynb_checkpoints/

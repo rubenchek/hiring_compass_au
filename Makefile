@@ -21,5 +21,8 @@ format:
 test:
 	pytest -q
 
-mail-promote:
-	python3 -m hiring_compass_au.data.pipelines.job_alerts
+job-alerts-dev:
+	docker compose run --rm job-alerts-dev
+
+job-alerts-prod:
+	docker compose run --rm job-alerts-prod

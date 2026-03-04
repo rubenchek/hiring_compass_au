@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from hiring_compass_au.settings import WorkspacePaths, WorkspaceSettings
+
+def _resolve_repo_root() -> Path:
+    # Explicit override (useful in Docker)
+    env_repo = os.environ.get("HC_REPO_ROOT")
+    if env_repo:
+        return Path(env_repo).expanduser().resolve()
+
+    # Fallback: workspace root (HC_ROOT) or CWD (/app in Docker)
+    env_root = os.environ.get("HC_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    return Path.cwd().resolve()
 
 
 class JobAlertsSettings(BaseSettings):
@@ -17,11 +30,18 @@ class JobAlertsSettings(BaseSettings):
         enable_decoding=False,
     )
 
-    root: Path = WorkspacePaths().root
-    gmail_client_secret: Path = Path("secrets/google_client_secret.json")
-    gmail_token: Path = Path("secrets/gmail_token.json")
+    repo_root: Path = Field(default_factory=_resolve_repo_root)
+    secrets_dir: Path = Path("secrets")
+    gmail_client_secret_path: Path = Path("google_client_secret.json")
+    gmail_token_path: Path = Path("gmail_token.json")
+
+    gmail_oauth_host: str = "127.0.0.1"
+    gmail_oauth_port: int = 0
+    gmail_oauth_open_browser: bool = True
+
     senders: list[str] = ["jobmail@s.seek.com.au"]
     fetch_batch_size: int = 50
+
     canon_batch_size: int = 200
     canon_timeout_s: float = 15
     canon_max_batches: int | None = None
@@ -46,11 +66,17 @@ class JobAlertsSettings(BaseSettings):
 
     @model_validator(mode="after")
     def _resolve_relative_paths(self) -> JobAlertsSettings:
-        ws = WorkspaceSettings()
-        if not self.gmail_client_secret.is_absolute():
-            self.gmail_client_secret = (ws.root / self.gmail_client_secret).resolve()
+        self.repo_root = self.repo_root.resolve()
 
-        if not self.gmail_token.is_absolute():
-            self.gmail_token = (ws.root / self.gmail_token).resolve()
+        if not self.secrets_dir.is_absolute():
+            self.secrets_dir = (self.repo_root / self.secrets_dir).resolve()
+
+        if not self.gmail_client_secret_path.is_absolute():
+            self.gmail_client_secret_path = (
+                self.secrets_dir / self.gmail_client_secret_path
+            ).resolve()
+
+        if not self.gmail_token_path.is_absolute():
+            self.gmail_token_path = (self.secrets_dir / self.gmail_token_path).resolve()
 
         return self

@@ -8,7 +8,7 @@ import time
 import requests
 from tqdm import tqdm
 
-from hiring_compass_au.data.enrichment.url_canonicalizer import (
+from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
     CanonicalizeError,
     resolve_to_canonical,
 )
@@ -162,6 +162,7 @@ def run_url_canonicalization(
 
     batches = 0
     ok = retry = err = 0
+    treated = 0
 
     global_bar = None
     if progress:
@@ -185,6 +186,7 @@ def run_url_canonicalization(
             ok += ok_b
             retry += retry_b
             err += err_b
+            treated += treated_b
 
             if treated_b == 0:
                 break
@@ -195,13 +197,13 @@ def run_url_canonicalization(
                     f"(batch_size={batch_size})"
                 )
             else:
+                pct_success = 100 * ok_b / treated_b
+                pct_treated = 100 * treated / total_start
                 logger.info(
-                    "URL canonicalization batch %d done: ok=%d retry=%d error=%d (total=%d)",
+                    "URL canonicalization batch %d done : %.1f%% success (total_progress=%.1f%%)",
                     batches,
-                    ok_b,
-                    retry_b,
-                    err_b,
-                    total_start,
+                    pct_success,
+                    pct_treated,
                 )
             batches += 1
 

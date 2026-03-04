@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner as mod
-from hiring_compass_au.data.pipelines.job_alerts.mail_parse_runner import run_mail_parse
+import hiring_compass_au.data.pipelines.job_alerts.parsers.runner as mod
+from hiring_compass_au.data.pipelines.job_alerts.parsers.runner import run_mail_parse
 
 
 def test_run_mail_parse_persists_hits_and_updates_email_status(conn, monkeypatch):
@@ -17,8 +17,10 @@ def test_run_mail_parse_persists_hits_and_updates_email_status(conn, monkeypatch
 
     monkeypatch.setattr(mod, "parse_email", fake_parse_email)
 
-    emails, hits_upserted, empty, error, unsupported = run_mail_parse(conn)
+    emails, hits_upserted, empty, error, unsupported, confidence = run_mail_parse(conn)
     assert (emails, hits_upserted, empty, error, unsupported) == (1, 1, 0, 0, 0)
+    assert confidence is not None
+    assert 0.0 <= confidence <= 100.0
 
     email = conn.execute(
         "SELECT status, hit_extract_count FROM emails WHERE message_id='m1'"

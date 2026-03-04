@@ -149,13 +149,6 @@ def run_mail_fetch(
         fetch_errors_total += fetch_errors_b
         persisted_total += updated_rows_b
 
-        logger.info(
-            "Fetch batch: ok=%d error=%d persisted=%d (batch_size=%d)",
-            fetched_ok_b,
-            fetch_errors_b,
-            updated_rows_b,
-            len(rows),
-        )
         if updated_rows_b != len(rows):
             logger.warning(
                 "Fetch batch persisted less than fetched: fetched=%d persisted=%d "

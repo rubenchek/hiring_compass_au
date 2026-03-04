@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import hiring_compass_au.data.pipelines.job_alerts.__main__ as main_mod
-import hiring_compass_au.data.pipelines.job_alerts.job_alerts_pipeline as pipeline_mod
+import hiring_compass_au.data.pipelines.job_alerts.pipeline as pipeline_mod
 from hiring_compass_au.data.storage.schema import init_all_tables
 
 
@@ -21,14 +21,17 @@ def _conn():
 def test_run_job_alert_pipeline_returns_expected_shape_without_gmail(monkeypatch):
     conn = _conn()
 
-    monkeypatch.setattr(pipeline_mod, "run_mail_parse", lambda conn: (2, 7, 1, 0, 0))
+    monkeypatch.setattr(pipeline_mod, "run_mail_parse", lambda conn: (2, 7, 1, 0, 0, 88.0))
     monkeypatch.setattr(pipeline_mod, "run_url_canonicalization", lambda **_: (3, 1, 1, 1))
     monkeypatch.setattr(pipeline_mod, "run_promote_job_ad", lambda conn: (1, 1, 0))
 
     results = pipeline_mod.run_job_alert_pipeline(
         conn,
-        client_secret_path=Path("ignored"),
-        token_path=Path("ignored"),
+        Path("ignored"),
+        Path("ignored"),
+        "127.0.0.1",
+        0,
+        False,
         index=False,
         fetch=False,
         parse=True,
@@ -52,6 +55,7 @@ def test_run_job_alert_pipeline_returns_expected_shape_without_gmail(monkeypatch
         "empty": 1,
         "error": 0,
         "unsupported": 0,
+        "confidence_mean": 88.0,
     }
     assert results["canonicalize"] == {"total_start": 3, "ok": 1, "retry": 1, "error": 1}
     assert results["promote"] == {"new": 1, "updated": 1, "failed": 0}

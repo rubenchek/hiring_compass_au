@@ -1,11 +1,29 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from hiring_compass_au.workspace import WorkspacePaths
+
+def _resolve_default_root() -> Path:
+    env_root = os.environ.get("HC_ROOT")
+    if env_root:
+        return Path(env_root).expanduser().resolve()
+
+    # try: repo root by walking up from CWD (works in local dev)
+    root = Path.cwd().resolve()
+    cur = root
+    while True:
+        if (cur / "pyproject.toml").exists():
+            return cur
+        if cur == cur.parent:
+            break
+        cur = cur.parent
+
+    # fallback: CWD (works in Docker where WORKDIR=/app)
+    return root
 
 
 class WorkspaceSettings(BaseSettings):
@@ -14,7 +32,7 @@ class WorkspaceSettings(BaseSettings):
         env_file=(".env.local", ".env"),
         extra="ignore",
     )
-    root: Path = WorkspacePaths().root
+    root: Path = Field(default_factory=_resolve_default_root)
     db_path: Path = Path("data/local/state.sqlite")
     logs_dir: Path = Path("logs")
 

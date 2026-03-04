@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 
-from hiring_compass_au.data.parsers.gmail.seek_mail_parser import parse_seek_email
+from hiring_compass_au.data.pipelines.job_alerts.parsers.seek_mail_parser import parse_seek_email
 
 PARSER_CONFIGS = {
     "jobmail@s.seek.com.au": {
