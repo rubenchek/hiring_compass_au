@@ -25,7 +25,7 @@ case "$ENV_NAME" in
     NOTIFY_SVC="notify-prod"
     ;;
   *)
-    echo "usage: $0 [dev|prod]"
+    echo "usage: $0 [dev|prod] [-- <pipeline args>...]"
     exit 2
     ;;
 esac
@@ -41,6 +41,8 @@ max_attempts=3
 # In dev we usually don't want retries
 if [ "$ENV_NAME" = "dev" ]; then
   max_attempts=1
+else
+  compose pull "$RUN_SVC" "$NOTIFY_SVC"
 fi
 
 while true; do
