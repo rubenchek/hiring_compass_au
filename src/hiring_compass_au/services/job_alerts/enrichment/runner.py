@@ -8,14 +8,14 @@ import time
 import requests
 from tqdm import tqdm
 
-from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
-    CanonicalizeError,
-    resolve_to_canonical,
-)
-from hiring_compass_au.data.storage.hit_store import (
+from hiring_compass_au.infra.storage.hit_store import (
     count_urls_to_canonicalize,
     get_batch_url_to_canonicalize,
     update_job_hit_canonicalization,
+)
+from hiring_compass_au.services.job_alerts.enrichment.url_canonicalizer import (
+    CanonicalizeError,
+    resolve_to_canonical,
 )
 
 logger = logging.getLogger(__name__)

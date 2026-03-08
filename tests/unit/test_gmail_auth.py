@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import hiring_compass_au.data.pipelines.job_alerts.ingestion.auth_and_build as auth_mod
+import hiring_compass_au.services.job_alerts.ingestion.auth_and_build as auth_mod
 
 
 def test_authenticate_and_build_service_forwards_oauth_params(monkeypatch, tmp_path):

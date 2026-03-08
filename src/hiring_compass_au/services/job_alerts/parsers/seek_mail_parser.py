@@ -4,6 +4,12 @@ from collections.abc import Iterator
 
 from bs4 import BeautifulSoup
 
+from hiring_compass_au.domain.normalizers.normalize_job_fields import (
+    normalize_space,
+    parse_location_raw,
+    parse_salary_raw,
+)
+
 # ---- Constants / patterns ----
 
 SEEK_TRACKING_PREFIX = "email.s.seek.com.au/uni/ss/c/"
@@ -15,23 +21,11 @@ POSTED_ON_RE = re.compile(r"^Posted on \d{1,2} [A-Za-z]{3,9} \d{4}$")
 CTA_TITLE_RE = re.compile(r"\b(view|apply|details|see|open)\b", re.I)
 STATE_RE = re.compile(r"\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b")
 
-STATE_SET = {"NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"}
-LOC_RE = re.compile(
-    r"^(?:(?P<suburb>.+?),\s*)?(?P<city>.+?)\s+(?P<state>NSW|VIC|QLD|SA|WA|TAS|ACT|NT)$"
-)
-
 MONEY_RE = re.compile(r"\$[\d,]+")
-MONEY_DOLLAR_RE = re.compile(r"\$\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*([kK])?")
-MONEY_K_RE = re.compile(r"(?<![\w$])([0-9]+(?:\.[0-9]+)?)\s*[kK](?!\w)")
 SALARY_HINT_RE = re.compile(
     r"\b(salary|super|package|per\s+year|p\.a\.|bonus|incentive|discount)\b",
     re.I,
 )
-
-RATE_YEAR_RE = re.compile(r"(per\s+year|per\s+annum|p\.?\s*a\.?|pa)\b", re.I)
-RATE_MONTH_RE = re.compile(r"(per\s+month|p\.?\s*m\.?|pm|monthly)\b", re.I)
-RATE_DAY_RE = re.compile(r"(per\s+day|p\.?\s*d\.?|pd|daily)\b", re.I)
-RATE_HOUR_RE = re.compile(r"(per\s+hour|p\.?\s*h\.?|ph|hourly)\b", re.I)
 
 
 # ---- Small utils ----
@@ -41,17 +35,13 @@ def _style_lower(tag) -> str:
     return (tag.get("style") or "").lower()
 
 
-def _norm_space(s: str) -> str:
-    return " ".join(s.split())
-
-
 def is_noise_line(s: str) -> bool:
     s = s.strip()
     return bool(POSTED_ON_RE.match(s)) or s.lower().startswith("posted on ")
 
 
 def norm(s: str | None) -> str:
-    return _norm_space((s or "").lower())
+    return normalize_space((s or "").lower())
 
 
 # ---- Anchor selection ----
@@ -158,25 +148,7 @@ def extract_location(texts, title=None, company=None):
     Returns a dict with keys: suburb, city, state, location_raw (all may be None).
     """
     location_text = best_location(texts, title, company)
-
-    result = {"suburb": None, "city": None, "state": None, "location_raw": None}
-
-    if not location_text:
-        return result
-
-    s = _norm_space(location_text)
-
-    m = LOC_RE.match(s)
-    if not m:
-        parts = s.split()
-        state = parts[-1] if parts and parts[-1] in STATE_SET else None
-        result.update({"state": state, "location_raw": s})
-        return result
-
-    result.update(m.groupdict())
-    result["location_raw"] = s
-
-    return result
+    return parse_location_raw(location_text)
 
 
 def best_salary(texts, location_raw=None):
@@ -199,52 +171,6 @@ def best_salary(texts, location_raw=None):
     return min(hinted, key=len) if hinted else None
 
 
-def parse_amounts(s: str) -> list[float]:
-    s = s.strip()
-    nums: list[float] = []
-
-    # $ amounts (optionally with k/K)
-    for n_str, k_flag in MONEY_DOLLAR_RE.findall(s):
-        v = float(n_str.replace(",", ""))
-        if k_flag and v <= 2000:
-            v *= 1000.0
-        nums.append(v)
-
-    # k/K amounts without $ (avoid double-counting $125k which is already captured above)
-    if "$" not in s:
-        for n_str in MONEY_K_RE.findall(s):
-            nums.append(float(n_str) * 1000.0)
-
-    if not nums or len(nums) <= 1:
-        return nums
-
-    # sanity check
-    lo = min(nums)
-    hi = max(nums)
-
-    if len(nums) == 2 and lo != 0 and hi / lo >= 500:
-        index = nums.index(lo)
-        nums[index] = lo * 1000
-
-    return nums
-
-
-def detect_rate_type(s: str):
-    """Infer salary period from text (hour/day/year) using simple keyword patterns.
-
-    Returns one of: 'hour', 'day', 'year', or None if no period is detected.
-    """
-    if RATE_HOUR_RE.search(s):
-        return "hour"
-    if RATE_DAY_RE.search(s):
-        return "day"
-    if RATE_MONTH_RE.search(s):
-        return "month"
-    if RATE_YEAR_RE.search(s):
-        return "year"
-    return None
-
-
 def extract_salary(texts, location_raw=None):
     """Extract salary range and period from candidate texts.
 
@@ -253,32 +179,8 @@ def extract_salary(texts, location_raw=None):
 
     Returns a dict with keys: salary_min, salary_max, salary_period, salary_raw.
     """
-    result = {"salary_min": None, "salary_max": None, "salary_period": None, "salary_raw": None}
-
     salary_text = best_salary(texts, location_raw)
-    if not salary_text:
-        return result
-
-    raw = _norm_space(salary_text)
-    result["salary_raw"] = raw
-    result["salary_period"] = detect_rate_type(result["salary_raw"])
-
-    nums = parse_amounts(raw)
-    if not nums:
-        return result
-
-    if result["salary_period"] is None and max(nums) >= 1000:
-        result["salary_period"] = "year"
-
-    if len(nums) >= 2:
-        lo, hi = nums[0], nums[1]
-        result["salary_min"] = min(lo, hi)
-        result["salary_max"] = max(lo, hi)
-        return result
-
-    result["salary_min"] = nums[0]
-    result["salary_max"] = nums[0]
-    return result
+    return parse_salary_raw(salary_text)
 
 
 def compute_hit_confidence(hit: dict) -> int:

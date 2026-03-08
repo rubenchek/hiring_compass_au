@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from hiring_compass_au.data.storage.schema import init_all_tables
+from hiring_compass_au.infra.storage.schema import init_all_tables
 
 
 def test_db_schema_invariants_fk_unique_check_enforced():

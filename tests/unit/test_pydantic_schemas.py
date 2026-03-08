@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from hiring_compass_au.schemas import EmploymentType, JobAd, JobRole, Sector, Source
+from hiring_compass_au.domain.schemas import EmploymentType, JobAd, JobRole, Sector, Source
 
 
 def _base_jobad_kwargs():

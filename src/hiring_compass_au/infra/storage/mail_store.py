@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import UTC, datetime
 
-from hiring_compass_au.data.storage.db import utc_now_iso
+from hiring_compass_au.infra.storage.db import utc_now_iso
 
 # ----------------------------
 # Fill database

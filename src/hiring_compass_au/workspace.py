@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from hiring_compass_au.settings import WorkspaceSettings
+from hiring_compass_au.config.settings import WorkspaceSettings
 
 
 def _resolve_default_root() -> Path:

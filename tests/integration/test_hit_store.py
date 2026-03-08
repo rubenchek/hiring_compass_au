@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.storage.hit_store import (
+from hiring_compass_au.infra.storage.hit_store import (
     update_job_hit_canonicalization,
     update_promoted_job_hits,
     upsert_email_job_hits,

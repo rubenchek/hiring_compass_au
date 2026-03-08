@@ -1,7 +1,7 @@
 from pathlib import Path
 from hiring_compass_au.workspace import get_workspace
-from hiring_compass_au.data.storage.db import get_connection
-from hiring_compass_au.data.storage.schema import init_all_tables
+from hiring_compass_au.infra.storage.db import get_connection
+from hiring_compass_au.infra.storage.schema import init_all_tables
 
 
 def main():

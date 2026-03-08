@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from hiring_compass_au.data.storage.schema import init_all_tables
+from hiring_compass_au.infra.storage.schema import init_all_tables
 
 
 @pytest.fixture()

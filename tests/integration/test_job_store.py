@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.storage.job_store import update_job_ad_enrichment, update_job_ads
+from hiring_compass_au.infra.storage.job_store import update_job_ad_enrichment, update_job_ads
 
 
 def _insert_hit(conn, *, hit_id: int, canonical_url: str):

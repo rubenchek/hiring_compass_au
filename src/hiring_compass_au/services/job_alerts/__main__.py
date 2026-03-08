@@ -9,11 +9,11 @@ from datetime import UTC, datetime
 
 import requests
 
-from hiring_compass_au.data.pipelines.job_alerts.pipeline import run_job_alert_pipeline
-from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
-from hiring_compass_au.data.storage.db import get_connection
-from hiring_compass_au.data.storage.schema import init_all_tables
-from hiring_compass_au.settings import WorkspaceSettings
+from hiring_compass_au.config.settings import WorkspaceSettings
+from hiring_compass_au.infra.storage.db import get_connection
+from hiring_compass_au.infra.storage.schema import init_all_tables
+from hiring_compass_au.services.job_alerts.pipeline import run_job_alert_pipeline
+from hiring_compass_au.services.job_alerts.settings import JobAlertsSettings
 from hiring_compass_au.workspace import WorkspacePaths, ensure_workspace
 
 EXIT_OK = 0

@@ -5,6 +5,7 @@ Système expérimental pour piloter et automatiser la chaîne de candidature en 
 ## Prérequis
 - Python >= 3.11
 - `pip` récent
+- (Optionnel) Docker + docker compose pour exécuter via `scripts/run_job_alerts.sh`
 
 ## Installation rapide
 ```bash
@@ -14,24 +15,49 @@ pip install -e .
 ```
 
 ## Initialiser l'espace de travail
-Crée les dossiers attendus (`data`, `models`, `metrics`, `configs`, `notebook`, `logs`, etc.) :
+Crée les dossiers attendus (`data`, `models`, `reports`, `logs`, etc.) :
 ```bash
 python scripts/bootstrap_workspace.py
 ```
 
+## Exécuter la pipeline job alerts (local)
+```bash
+python -m hiring_compass_au.services.job_alerts
+```
+
+Arguments utiles (exemples) :
+```bash
+python -m hiring_compass_au.services.job_alerts --no-fetch --no-promote
+```
+
+## Exécuter via Docker (dev/prod)
+```bash
+./scripts/run_job_alerts.sh dev
+./scripts/run_job_alerts.sh prod -- --no-promote
+```
+
 ## Structure actuelle
-- `docs/` : documents de cadrage (`design-doc.md`).
-- `data/raw` : dumps des offres ou données collectées (ignorées par Git).
-- `data/processed` : données nettoyées/features prêtes à l'emploi (ignorées par Git).
-- `notebook/` : explorations et essais rapides.
-- `src/hiring_compass/` : code Python du projet (workspace utils dans `workspace.py`).
-- `scripts/` : scripts utilitaires (`bootstrap_workspace.py`).
-- `models/` : artefacts de modèles/embeddings (ignorés par Git).
-- `metrics/` : résultats et évaluations (ignorés par Git).
-- `configs/` : configuration locale (ex. `*.yaml`, secrets dans `.env` à ne pas commit).
-- `logs/` : traces d'exécution (ignorées par Git).
+```
+.
+├── configs/                   # YAMLs de sources (ex: sources.yaml)
+├── docs/                      # docs de cadrage
+├── notebooks/                 # explorations
+├── scripts/                   # utilitaires locaux (bootstrap, init DB, docker)
+├── src/hiring_compass_au/     # package Python
+│   ├── config/                # settings (env vars, chemins)
+│   ├── domain/                # schémas et normalisation métier
+│   ├── infra/                 # stockage (db, stores)
+│   ├── services/job_alerts/   # pipeline job alerts
+│   └── workspace.py           # gestion des chemins workspace
+├── tests/                     # unit, integration, pipelines
+└── run/                       # runtime dev/prod (gitignored)
+```
+
+Notes :
+- `configs/` (fichiers YAML) est distinct de `src/hiring_compass_au/config/` (code settings).
+- Les données/runtime (`run/`, `data/`, `logs/`, `models/`, `reports/`) sont ignorés par Git.
 
 ## Prochaines étapes suggérées
-- Ajouter les premières sources d'ingestion (scrapers ou loaders) sous `src/hiring_compass/`.
-- Documenter un flux minimal de scoring/candidature dans `docs/` ou `configs/`.
-- Tracer les métriques de base dans `metrics/` dès les premiers essais.
+- Ajouter de nouvelles sources d'ingestion en s'appuyant sur `configs/sources.yaml`.
+- Documenter les flux métier clés dans `docs/`.
+- Étendre la pipeline (ex: nouveaux parsers, enrichissements, outputs).

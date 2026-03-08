@@ -5,7 +5,7 @@ import sys
 
 import requests
 
-import hiring_compass_au.data.pipelines.job_alerts.__main__ as main_mod
+import hiring_compass_au.services.job_alerts.__main__ as main_mod
 
 
 def _read_last_jsonl(path):

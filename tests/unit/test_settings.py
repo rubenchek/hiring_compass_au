@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.pipelines.job_alerts.settings import JobAlertsSettings
-from hiring_compass_au.settings import WorkspaceSettings
+from hiring_compass_au.config.settings import WorkspaceSettings
+from hiring_compass_au.services.job_alerts.settings import JobAlertsSettings
 
 
 def test_workspace_root_is_absolute():

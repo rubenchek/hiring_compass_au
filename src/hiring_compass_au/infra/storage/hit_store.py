@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
-from hiring_compass_au.data.storage.db import compute_backoff_minutes, utc_now_iso
+from hiring_compass_au.infra.storage.db import compute_backoff_minutes, utc_now_iso
 
 # ----------------------------
 # Fill database

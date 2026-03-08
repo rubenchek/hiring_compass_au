@@ -3,14 +3,14 @@ import sqlite3
 import time
 from pathlib import Path
 
-from hiring_compass_au.data.pipelines.job_alerts.enrichment.runner import run_url_canonicalization
-from hiring_compass_au.data.pipelines.job_alerts.ingestion.auth_and_build import (
+from hiring_compass_au.services.job_alerts.enrichment.runner import run_url_canonicalization
+from hiring_compass_au.services.job_alerts.ingestion.auth_and_build import (
     authenticate_and_build_service,
 )
-from hiring_compass_au.data.pipelines.job_alerts.ingestion.mail_fetch import run_mail_fetch
-from hiring_compass_au.data.pipelines.job_alerts.ingestion.mail_index import run_mail_index
-from hiring_compass_au.data.pipelines.job_alerts.parsers.runner import run_mail_parse
-from hiring_compass_au.data.pipelines.job_alerts.promote.runner import run_promote_job_ad
+from hiring_compass_au.services.job_alerts.ingestion.mail_fetch import run_mail_fetch
+from hiring_compass_au.services.job_alerts.ingestion.mail_index import run_mail_index
+from hiring_compass_au.services.job_alerts.parsers.runner import run_mail_parse
+from hiring_compass_au.services.job_alerts.promote.runner import run_promote_job_ad
 
 logger = logging.getLogger(__name__)
 

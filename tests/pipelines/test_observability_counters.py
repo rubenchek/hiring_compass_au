@@ -5,14 +5,14 @@ import time
 
 import requests
 
-from hiring_compass_au.data.pipelines.job_alerts.enrichment import runner as canon_mod
-from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
+from hiring_compass_au.infra.storage.schema import init_all_tables
+from hiring_compass_au.services.job_alerts.enrichment import runner as canon_mod
+from hiring_compass_au.services.job_alerts.enrichment.url_canonicalizer import (
     CanonicalizeError,
 )
-from hiring_compass_au.data.pipelines.job_alerts.ingestion import mail_fetch as mail_fetch_mod
-from hiring_compass_au.data.pipelines.job_alerts.parsers import runner as mail_parse_mod
-from hiring_compass_au.data.pipelines.job_alerts.promote.runner import run_promote_job_ad
-from hiring_compass_au.data.storage.schema import init_all_tables
+from hiring_compass_au.services.job_alerts.ingestion import mail_fetch as mail_fetch_mod
+from hiring_compass_au.services.job_alerts.parsers import runner as mail_parse_mod
+from hiring_compass_au.services.job_alerts.promote.runner import run_promote_job_ad
 
 
 def _conn():

@@ -4,11 +4,11 @@ import time
 
 import requests
 
-import hiring_compass_au.data.pipelines.job_alerts.enrichment.runner as mod
-from hiring_compass_au.data.pipelines.job_alerts.enrichment.runner import (
+import hiring_compass_au.services.job_alerts.enrichment.runner as mod
+from hiring_compass_au.services.job_alerts.enrichment.runner import (
     run_url_canonicalization,
 )
-from hiring_compass_au.data.pipelines.job_alerts.enrichment.url_canonicalizer import (
+from hiring_compass_au.services.job_alerts.enrichment.url_canonicalizer import (
     CanonicalizeError,
 )
 
