@@ -1,11 +1,11 @@
 import logging
 import sqlite3
 
-from hiring_compass_au.data.storage.hit_store import (
+from hiring_compass_au.infra.storage.hit_store import (
     get_promote_pending_job_hits,
     update_promoted_job_hits,
 )
-from hiring_compass_au.data.storage.job_store import update_job_ad_enrichment, update_job_ads
+from hiring_compass_au.infra.storage.job_store import update_job_ad_enrichment, update_job_ads
 
 logger = logging.getLogger(__name__)
 

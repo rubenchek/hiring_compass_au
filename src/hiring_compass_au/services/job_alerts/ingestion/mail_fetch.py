@@ -3,7 +3,7 @@ import logging
 import sqlite3
 from email.utils import parseaddr
 
-from hiring_compass_au.data.storage.mail_store import (
+from hiring_compass_au.infra.storage.mail_store import (
     get_non_fetched_email_list,
     update_fetched_email_metadata,
 )

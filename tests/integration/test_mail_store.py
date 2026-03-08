@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.storage.mail_store import (
+from hiring_compass_au.infra.storage.mail_store import (
     update_fetched_email_metadata,
     update_parsed_email,
     upsert_indexed_emails,

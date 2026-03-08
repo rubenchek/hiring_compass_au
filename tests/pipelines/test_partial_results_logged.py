@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
-import hiring_compass_au.data.pipelines.job_alerts.__main__ as main_mod
+import hiring_compass_au.services.job_alerts.__main__ as main_mod
 
 
 def test_main_logs_partial_results_when_exception_has_hc_results(tmp_path, monkeypatch):

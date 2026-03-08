@@ -5,9 +5,9 @@ import sqlite3
 import sys
 from pathlib import Path
 
-import hiring_compass_au.data.pipelines.job_alerts.__main__ as main_mod
-import hiring_compass_au.data.pipelines.job_alerts.pipeline as pipeline_mod
-from hiring_compass_au.data.storage.schema import init_all_tables
+import hiring_compass_au.services.job_alerts.__main__ as main_mod
+import hiring_compass_au.services.job_alerts.pipeline as pipeline_mod
+from hiring_compass_au.infra.storage.schema import init_all_tables
 
 
 def _conn():

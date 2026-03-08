@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hiring_compass_au.data.pipelines.job_alerts.promote.runner import run_promote_job_ad
+from hiring_compass_au.services.job_alerts.promote.runner import run_promote_job_ad
 
 
 def test_run_promote_creates_pending_enrichment(conn):

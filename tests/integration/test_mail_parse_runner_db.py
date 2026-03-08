@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import hiring_compass_au.data.pipelines.job_alerts.parsers.runner as mod
-from hiring_compass_au.data.pipelines.job_alerts.parsers.runner import run_mail_parse
+import hiring_compass_au.services.job_alerts.parsers.runner as mod
+from hiring_compass_au.services.job_alerts.parsers.runner import run_mail_parse
 
 
 def test_run_mail_parse_persists_hits_and_updates_email_status(conn, monkeypatch):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import requests
 
-from hiring_compass_au.settings import WorkspaceSettings
+from hiring_compass_au.config.settings import WorkspaceSettings
 
 
 def _get_env(name: str) -> str | None:

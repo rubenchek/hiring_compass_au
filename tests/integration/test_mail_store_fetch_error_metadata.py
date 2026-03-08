@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from hiring_compass_au.data.storage.mail_store import update_fetched_email_metadata
-from hiring_compass_au.data.storage.schema import init_all_tables
+from hiring_compass_au.infra.storage.mail_store import update_fetched_email_metadata
+from hiring_compass_au.infra.storage.schema import init_all_tables
 
 
 def test_update_fetched_email_metadata_allows_null_internal_date_ms():

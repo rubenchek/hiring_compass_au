@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hiring_compass_au.data.pipelines.job_alerts.parsers.seek_mail_parser import parse_seek_email
+from hiring_compass_au.services.job_alerts.parsers.seek_mail_parser import parse_seek_email
 
 
 def test_parse_seek_email_from_fixture_extracts_one_hit():

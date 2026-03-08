@@ -1,7 +1,7 @@
 import logging
 import sqlite3
 
-from hiring_compass_au.data.storage.mail_store import (
+from hiring_compass_au.infra.storage.mail_store import (
     get_last_internal_date_ms,
     upsert_indexed_emails,
 )
