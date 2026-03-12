@@ -23,6 +23,7 @@ def update_job_ads(
         fingerprint,
         title,
         company,
+        company_id,
         suburb,
         city,
         state,
@@ -35,13 +36,14 @@ def update_job_ads(
         first_seen_at,
         last_seen_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(source, canonical_url) DO UPDATE SET
         -- don't overwrite good data with NULLs
         external_job_id = COALESCE(excluded.external_job_id, job_ads.external_job_id),
         fingerprint     = COALESCE(excluded.fingerprint,     job_ads.fingerprint),
         title           = COALESCE(excluded.title,           job_ads.title),
         company         = COALESCE(excluded.company,         job_ads.company),
+        company_id      = COALESCE(excluded.company_id,      job_ads.company_id),
         suburb          = COALESCE(excluded.suburb,          job_ads.suburb),
         city            = COALESCE(excluded.city,            job_ads.city),
         state           = COALESCE(excluded.state,           job_ads.state),
@@ -79,6 +81,7 @@ def update_job_ads(
             hit["fingerprint"],
             hit["title"],
             hit["company"],
+            hit["company_id"] if hasattr(hit, "keys") and "company_id" in hit.keys() else None,
             hit["suburb"],
             hit["city"],
             hit["state"],
@@ -97,18 +100,9 @@ def update_job_ads(
     return promoted_jobs, hits_upserted, hits_failed, attempted_keys
 
 
-def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs: list):
-    for row in promoted_jobs:
-        if row["source"] == "seek":
-            for enrichment in ["jobDetails", "matchedSkills"]:
-                conn.execute(
-                    """
-                INSERT INTO job_ad_enrichment (
-                    job_id,
-                    enrich_type,
-                    enrich_status)
-                VALUES (?, ?, ?)
-                ON CONFLICT (job_id, enrich_type) DO NOTHING
-                """,
-                    (row["id"], enrichment, "pending"),
-                )
+def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs: list) -> None:
+    from hiring_compass_au.infra.storage.enrichment_store import (
+        add_to_job_ad_enrichment_queue,
+    )
+
+    add_to_job_ad_enrichment_queue(conn, promoted_jobs)

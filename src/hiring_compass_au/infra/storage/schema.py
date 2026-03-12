@@ -107,10 +107,12 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             fingerprint     TEXT,
             title           TEXT,
             company         TEXT,
+            company_id      INTEGER,
             suburb          TEXT,
             city            TEXT,
             state           TEXT,
             location_raw    TEXT,
+            listing_date_utc TEXT,
             salary_min      INTEGER,
             salary_max      INTEGER,
             salary_period   TEXT,
@@ -123,7 +125,32 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             last_seen_at    TEXT,
             
             UNIQUE(source, canonical_url),
-            UNIQUE(source, external_job_id) 
+            UNIQUE(source, external_job_id),
+            FOREIGN KEY (company_id) REFERENCES company(id)
+        );
+        """
+    )
+    conn.commit()
+
+
+def init_company_table(conn: sqlite3.Connection) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS company (
+            id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                        TEXT,
+            industry                    TEXT,
+            description                 TEXT,
+            size                        TEXT,
+            website_url                 TEXT,
+            seek_company_id             INTEGER,
+            seek_rating_value           REAL,
+            seek_review_count           INTEGER,
+            seek_company_url            TEXT,
+            
+            
+            UNIQUE(seek_company_id)
         );
         """
     )
@@ -139,7 +166,7 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
             job_id          INTEGER,
             enrich_type     TEXT,
             enrich_status   TEXT NOT NULL DEFAULT 'pending'
-                CHECK (enrich_status IN ('pending','ok','retry','error')),
+                CHECK (enrich_status IN ('pending','in_progress','ok','retry','error')),
             http_status     INTEGER,
             attempt_count   INTEGER NOT NULL DEFAULT 0,
             next_retry_at   TEXT,
@@ -178,6 +205,7 @@ def init_email_job_ads_table(conn: sqlite3.Connection) -> None:
 def init_all_tables(conn):
     init_email_table(conn)
     init_email_job_hits_table(conn)
+    init_company_table(conn)
     init_job_ads_table(conn)
     init_job_ad_enrichment(conn)
     init_email_job_ads_table(conn)

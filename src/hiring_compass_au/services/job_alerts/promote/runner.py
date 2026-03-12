@@ -1,11 +1,12 @@
 import logging
 import sqlite3
 
+from hiring_compass_au.infra.storage.enrichment_store import add_to_job_ad_enrichment_queue
 from hiring_compass_au.infra.storage.hit_store import (
     get_promote_pending_job_hits,
     update_promoted_job_hits,
 )
-from hiring_compass_au.infra.storage.job_store import update_job_ad_enrichment, update_job_ads
+from hiring_compass_au.infra.storage.job_store import update_job_ads
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def run_promote_job_ad_batch(
                 updated_rows,
             )
 
-        update_job_ad_enrichment(conn, promoted_jobs)
+        add_to_job_ad_enrichment_queue(conn, promoted_jobs)
         conn.execute("COMMIT;")
     except Exception:
         conn.execute("ROLLBACK;")
