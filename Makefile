@@ -1,4 +1,4 @@
-.PHONY: install bootstrap lint lint-fix test
+.PHONY: install bootstrap lint lint-fix test job-alerts-dev notify smoke-test
 
 install	:
 	uv pip install -e '.[dev]'
@@ -22,7 +22,10 @@ test:
 	pytest -q
 
 job-alerts-dev:
-	docker compose run --rm job-alerts-dev
+	docker compose run --rm job-alerts
 
 notify:
-	docker compose -f docker-compose.yml run --rm notify-dev
+	docker compose run --rm notify
+
+smoke-test:
+	scripts/run_prod_smoke_test.sh
