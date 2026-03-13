@@ -1,63 +1,77 @@
 # Hiring Compass AU
 
-Système expérimental pour piloter et automatiser la chaîne de candidature en Australie, en restant traçable et contrôlable. Le périmètre et les règles sont décrits dans `docs/design-doc.md`.
+Experimental system to automate and track the Australian job application pipeline. Scope and rules live in `docs/design-doc.md`.
 
-## Prérequis
+## Prerequisites
 - Python >= 3.11
-- `pip` récent
-- (Optionnel) Docker + docker compose pour exécuter via `scripts/run_job_alerts.sh`
+- Recent `pip`
+- (Optional) Docker + Docker Compose for container runs
 
-## Installation rapide
+## Quick install
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
 
-## Initialiser l'espace de travail
-Crée les dossiers attendus (`data`, `models`, `reports`, `logs`, etc.) :
+## Initialize the workspace
+Creates the expected folders (`data`, `models`, `reports`, `logs`, etc.):
 ```bash
 python scripts/bootstrap_workspace.py
 ```
 
-## Exécuter la pipeline job alerts (local)
+## Run via Docker (dev/prod)
+Dev (override auto):
 ```bash
-python -m hiring_compass_au.services.job_alerts
+docker compose up
+docker compose run --rm job-alerts
+```
+Prod:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm \
+  job-alerts -- --no-promote
 ```
 
-Arguments utiles (exemples) :
+## Run job enrichment via Docker (dev/prod)
+Dev:
 ```bash
-python -m hiring_compass_au.services.job_alerts --no-fetch --no-promote
+docker compose run --rm job-enrichment --limit 10 --max-batches 1
+```
+Prod:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm \
+  job-enrichment --limit 10 --max-batches 1
 ```
 
-## Exécuter via Docker (dev/prod)
+## Prod smoke test (cloned DB)
 ```bash
-./scripts/run_job_alerts.sh dev
-./scripts/run_job_alerts.sh prod -- --no-promote
+scripts/run_prod_smoke_test.sh
 ```
 
-## Structure actuelle
+## Current structure
 ```
 .
-├── configs/                   # YAMLs de sources (ex: sources.yaml)
-├── docs/                      # docs de cadrage
+├── configs/                   # YAML sources (e.g., sources.yaml)
+├── docs/                      # design docs
 ├── notebooks/                 # explorations
-├── scripts/                   # utilitaires locaux (bootstrap, init DB, docker)
-├── src/hiring_compass_au/     # package Python
-│   ├── config/                # settings (env vars, chemins)
-│   ├── domain/                # schémas et normalisation métier
-│   ├── infra/                 # stockage (db, stores)
-│   ├── services/job_alerts/   # pipeline job alerts
-│   └── workspace.py           # gestion des chemins workspace
+├── scripts/                   # local utilities (bootstrap, init DB, docker)
+├── src/hiring_compass_au/     # Python package
+│   ├── config/                # settings (env vars, paths)
+│   ├── domain/                # domain models and normalization
+│   ├── infra/                 # storage (db, stores)
+│   ├── services/job_alerts/   # job alerts pipeline
+│   ├── services/job_enrichment/ # job enrichment pipeline
+│   └── workspace.py           # workspace paths
 ├── tests/                     # unit, integration, pipelines
 └── run/                       # runtime dev/prod (gitignored)
 ```
 
-Notes :
-- `configs/` (fichiers YAML) est distinct de `src/hiring_compass_au/config/` (code settings).
-- Les données/runtime (`run/`, `data/`, `logs/`, `models/`, `reports/`) sont ignorés par Git.
+Notes:
+- `configs/` (YAML files) is distinct from `src/hiring_compass_au/config/` (code settings).
+- Runtime data (`run/`, `data/`, `logs/`, `models/`, `reports/`) are ignored by Git.
+- Docker Compose uses `docker-compose.yml` + `docker-compose.override.yml` (dev auto).
 
-## Prochaines étapes suggérées
-- Ajouter de nouvelles sources d'ingestion en s'appuyant sur `configs/sources.yaml`.
-- Documenter les flux métier clés dans `docs/`.
-- Étendre la pipeline (ex: nouveaux parsers, enrichissements, outputs).
+## Suggested next steps
+- Add new ingestion sources using `configs/sources.yaml`.
+- Document key business flows in `docs/`.
+- Extend the pipeline (new parsers, enrichments, outputs).
