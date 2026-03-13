@@ -7,6 +7,8 @@ __pycache__/
 .env
 .env.local
 agents.md
+secrets/
+secrets
 
 # OS / editors
 .DS_Store
@@ -35,7 +37,6 @@ metrics/*
 logs/*
 !logs/.gitkeep
 configs/
-secrets/
 **/state.sqlite
 **/pipeline_runs.jsonl
 
@@ -45,5 +46,6 @@ run/*
 
 # Jupyter
 .ipynb_checkpoints/
+notebooks/job_enrichment_exploration/
 
 git_ignore_exploration/

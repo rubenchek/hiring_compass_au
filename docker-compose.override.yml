@@ -1,0 +1,47 @@
+services:
+  job-alerts:
+    build: .
+    image: hiring-compass-au:dev
+    environment:
+      HC_ROOT: /app/run/dev
+      HC_SECRETS_DIR: /app/secrets
+      PYTHONPATH: /app/src
+    volumes:
+      - ./:/app
+      - ./secrets:/app/secrets
+
+  job-enrichment:
+    build: .
+    image: hiring-compass-au:dev
+    environment:
+      HC_ROOT: /app/run/dev
+      HC_SECRETS_DIR: /app/secrets
+      PYTHONPATH: /app/src
+    volumes:
+      - ./:/app
+      - ./secrets:/app/secrets
+
+  job-alerts-oauth:
+    build: .
+    image: hiring-compass-au:dev
+    environment:
+      HC_ROOT: /app/run/dev
+      HC_SECRETS_DIR: /app/secrets
+      PYTHONPATH: /app/src
+      HC_GMAIL_OAUTH_HOST: 0.0.0.0
+      HC_GMAIL_OAUTH_PORT: 8080
+      HC_GMAIL_OAUTH_OPEN_BROWSER: "0"
+    volumes:
+      - ./:/app
+      - ./secrets:/app/secrets
+
+  notify:
+    build: .
+    image: hiring-compass-au:dev
+    environment:
+      HC_ROOT: /app/run/dev
+      HC_SECRETS_DIR: /app/secrets
+      PYTHONPATH: /app/src
+    volumes:
+      - ./:/app
+      - ./secrets:/app/secrets

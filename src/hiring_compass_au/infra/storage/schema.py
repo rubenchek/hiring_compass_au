@@ -107,10 +107,12 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             fingerprint     TEXT,
             title           TEXT,
             company         TEXT,
+            company_id      INTEGER,
             suburb          TEXT,
             city            TEXT,
             state           TEXT,
             location_raw    TEXT,
+            listing_date_utc TEXT,
             salary_min      INTEGER,
             salary_max      INTEGER,
             salary_period   TEXT,
@@ -123,7 +125,32 @@ def init_job_ads_table(conn: sqlite3.Connection) -> None:
             last_seen_at    TEXT,
             
             UNIQUE(source, canonical_url),
-            UNIQUE(source, external_job_id) 
+            UNIQUE(source, external_job_id),
+            FOREIGN KEY (company_id) REFERENCES company(id)
+        );
+        """
+    )
+    conn.commit()
+
+
+def init_company_table(conn: sqlite3.Connection) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS company (
+            id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name                        TEXT,
+            industry                    TEXT,
+            description                 TEXT,
+            size                        TEXT,
+            website_url                 TEXT,
+            seek_company_id             INTEGER,
+            seek_rating_value           REAL,
+            seek_review_count           INTEGER,
+            seek_company_url            TEXT,
+            
+            
+            UNIQUE(seek_company_id)
         );
         """
     )
@@ -139,7 +166,7 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
             job_id          INTEGER,
             enrich_type     TEXT,
             enrich_status   TEXT NOT NULL DEFAULT 'pending'
-                CHECK (enrich_status IN ('pending','ok','retry','error')),
+                CHECK (enrich_status IN ('pending','in_progress','ok','retry','error')),
             http_status     INTEGER,
             attempt_count   INTEGER NOT NULL DEFAULT 0,
             next_retry_at   TEXT,
@@ -148,6 +175,38 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
             fetched_at      TEXT,
             
             PRIMARY KEY (job_id, enrich_type),
+            FOREIGN KEY (job_id) REFERENCES job_ads(id) ON DELETE CASCADE
+        );
+        """
+    )
+    conn.commit()
+
+
+def init_seek_enrichment_table(conn: sqlite3.Connection) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS seek_enrichment (
+            job_id                      INTEGER PRIMARY KEY,
+            advertiser_id               INTEGER,
+            role_id                     TEXT,
+            classification_ids          TEXT,
+            classification_labels       TEXT,
+            subclassification_ids       TEXT,
+            subclassification_labels    TEXT,
+            seo_normalised_role_title   TEXT,
+            work_types                  TEXT,
+            work_arrangement_types      TEXT,
+            badges                      TEXT,
+            description_raw             TEXT,
+            teaser                      TEXT,
+            bullet_points               TEXT,
+            questionnaire_questions     TEXT,
+            skills                      TEXT,
+            expires_at_utc              TEXT,
+            insights_volume_label       TEXT,
+            insights_count              INTEGER,
+            status                      TEXT,
             FOREIGN KEY (job_id) REFERENCES job_ads(id) ON DELETE CASCADE
         );
         """
@@ -178,6 +237,8 @@ def init_email_job_ads_table(conn: sqlite3.Connection) -> None:
 def init_all_tables(conn):
     init_email_table(conn)
     init_email_job_hits_table(conn)
+    init_company_table(conn)
     init_job_ads_table(conn)
     init_job_ad_enrichment(conn)
+    init_seek_enrichment_table(conn)
     init_email_job_ads_table(conn)
