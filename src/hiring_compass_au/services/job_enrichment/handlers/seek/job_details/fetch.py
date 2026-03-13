@@ -7,7 +7,11 @@ import requests
 from hiring_compass_au.services.job_enrichment.handlers.seek.session import (
     build_seek_session,
 )
-from hiring_compass_au.services.job_enrichment.models import FetchResult
+from hiring_compass_au.services.job_enrichment.models import (
+    FetchResult,
+    RetryableEnrichmentError,
+    TerminalEnrichmentError,
+)
 
 JOB_DETAILS_QUERY = """
 query jobDetails(
@@ -165,26 +169,61 @@ def fetch_job_details(
         "query": JOB_DETAILS_QUERY,
     }
 
-    resp = session.post(
-        "https://www.seek.com.au/graphql",
-        json=payload,
-        timeout=timeout_s,
-    )
+    try:
+        resp = session.post(
+            "https://www.seek.com.au/graphql",
+            json=payload,
+            timeout=timeout_s,
+        )
+    except requests.RequestException as exc:
+        raise RetryableEnrichmentError(
+            f"request failed: {exc}",
+            error_code="network_error",
+        ) from exc
 
     try:
         body = resp.json()
     except Exception:
         body = {"raw": resp.text}
 
-    # Normalize GraphQL errors if present
-    if isinstance(body, dict) and "errors" in body:
-        body = {
-            "errors": body.get("errors"),
-            "data": body.get("data"),
-        }
+    _raise_for_status(resp.status_code, body)
 
     return FetchResult(
         http_status=resp.status_code,
         headers=dict(resp.headers),
         payload=body,
     )
+
+
+def _raise_for_status(status: int, body: dict | None) -> None:
+    if status >= 500:
+        raise RetryableEnrichmentError(
+            f"server error {status}",
+            http_status=status,
+            error_code="http_5xx",
+        )
+    if status in {408, 429}:
+        raise RetryableEnrichmentError(
+            f"rate/timeout {status}",
+            http_status=status,
+            error_code="http_retryable",
+        )
+    if status == 404:
+        raise TerminalEnrichmentError(
+            "not found",
+            http_status=status,
+            error_code="http_404",
+        )
+    if status >= 400:
+        raise TerminalEnrichmentError(
+            f"http error {status}",
+            http_status=status,
+            error_code="http_4xx",
+        )
+
+    if isinstance(body, dict) and body.get("errors"):
+        raise TerminalEnrichmentError(
+            "graphql errors",
+            http_status=status,
+            error_code="graphql_error",
+        )

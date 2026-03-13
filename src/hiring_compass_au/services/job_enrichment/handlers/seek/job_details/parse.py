@@ -4,7 +4,11 @@ from typing import Any
 
 from hiring_compass_au.domain.models import CompanyData, JobAdData
 from hiring_compass_au.services.job_enrichment.handlers.seek.source_models import SeekEnrichmentData
-from hiring_compass_au.services.job_enrichment.models import FetchResult, ParseResult
+from hiring_compass_au.services.job_enrichment.models import (
+    FetchResult,
+    ParseResult,
+    TerminalEnrichmentError,
+)
 
 
 def _build_job_ad(job: dict[str, Any], target) -> JobAdData:
@@ -141,19 +145,43 @@ def parse_job_details(fetch_result: FetchResult, target) -> ParseResult:
     """
     payload = fetch_result.payload
     if not isinstance(payload, dict):
-        return ParseResult()
+        raise TerminalEnrichmentError(
+            "invalid payload type",
+            http_status=fetch_result.http_status,
+            error_code="parse_invalid_payload",
+        )
 
-    data = payload.get("data") or {}
-    job_details = data.get("jobDetails") or {}
-    job = job_details.get("job") or {}
+    if payload.get("errors"):
+        raise TerminalEnrichmentError(
+            "graphql errors in payload",
+            http_status=fetch_result.http_status,
+            error_code="parse_graphql_errors",
+        )
 
-    if not job_details:
-        return ParseResult()
+    try:
+        data = payload.get("data") or {}
+        job_details = data.get("jobDetails") or {}
+        job = job_details.get("job") or {}
 
-    job_ad = _build_job_ad(job, target)
-    source = _build_seek_enrichment(job, job_details)
-    company = _build_company(job, job_details)
-    # adapter result dataclass
+        if not job_details or not job:
+            raise TerminalEnrichmentError(
+                "missing jobDetails/job",
+                http_status=fetch_result.http_status,
+                error_code="parse_missing_job",
+            )
+
+        job_ad = _build_job_ad(job, target)
+        source = _build_seek_enrichment(job, job_details)
+        company = _build_company(job, job_details)
+    except TerminalEnrichmentError:
+        raise
+    except Exception as exc:
+        raise TerminalEnrichmentError(
+            f"parse failed: {exc}",
+            http_status=fetch_result.http_status,
+            error_code="parse_exception",
+        ) from exc
+
     return ParseResult(
         job_ad_patch=job_ad,
         source_patch=source,
