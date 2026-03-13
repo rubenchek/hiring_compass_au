@@ -182,6 +182,38 @@ def init_job_ad_enrichment(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def init_seek_enrichment_table(conn: sqlite3.Connection) -> None:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS seek_enrichment (
+            job_id                      INTEGER PRIMARY KEY,
+            advertiser_id               INTEGER,
+            role_id                     TEXT,
+            classification_ids          TEXT,
+            classification_labels       TEXT,
+            subclassification_ids       TEXT,
+            subclassification_labels    TEXT,
+            seo_normalised_role_title   TEXT,
+            work_types                  TEXT,
+            work_arrangement_types      TEXT,
+            badges                      TEXT,
+            description_raw             TEXT,
+            teaser                      TEXT,
+            bullet_points               TEXT,
+            questionnaire_questions     TEXT,
+            skills                      TEXT,
+            expires_at_utc              TEXT,
+            insights_volume_label       TEXT,
+            insights_count              INTEGER,
+            status                      TEXT,
+            FOREIGN KEY (job_id) REFERENCES job_ads(id) ON DELETE CASCADE
+        );
+        """
+    )
+    conn.commit()
+
+
 def init_email_job_ads_table(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
@@ -208,4 +240,5 @@ def init_all_tables(conn):
     init_company_table(conn)
     init_job_ads_table(conn)
     init_job_ad_enrichment(conn)
+    init_seek_enrichment_table(conn)
     init_email_job_ads_table(conn)

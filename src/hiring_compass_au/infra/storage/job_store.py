@@ -100,6 +100,51 @@ def update_job_ads(
     return promoted_jobs, hits_upserted, hits_failed, attempted_keys
 
 
+def update_job_ad_from_patch(
+    conn: sqlite3.Connection,
+    *,
+    job_id: int,
+    patch: dict,
+) -> int:
+    allowed = {
+        "external_job_id",
+        "fingerprint",
+        "title",
+        "company",
+        "company_id",
+        "suburb",
+        "city",
+        "state",
+        "location_raw",
+        "listing_date_utc",
+        "salary_min",
+        "salary_max",
+        "salary_period",
+        "salary_raw",
+        "description",
+        "job_status",
+        "canonical_url",
+        "first_seen_at",
+        "last_seen_at",
+    }
+    now = utc_now_iso()
+    if "last_seen_at" not in patch:
+        patch = dict(patch)
+        patch["last_seen_at"] = now
+    fields = [k for k in patch.keys() if k in allowed]
+    if not fields:
+        return 0
+
+    values = [patch[k] for k in fields]
+    sql_set = ", ".join([f"{k} = ?" for k in fields])
+    cur = conn.execute(
+        f"UPDATE job_ads SET {sql_set} WHERE id = ?",
+        [*values, job_id],
+    )
+
+    return cur.rowcount
+
+
 def update_job_ad_enrichment(conn: sqlite3.Connection, promoted_jobs: list) -> None:
     from hiring_compass_au.infra.storage.enrichment_store import (
         add_to_job_ad_enrichment_queue,
